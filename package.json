@@ -1,0 +1,15 @@
+{
+    "name": "com.scellecs.morpeh.graphics",
+    "author": "Heymeepo",
+    "displayName": "Morpeh Graphics",
+    "description": "Low level graphics api based on BatchRendererGroup for Morpeh ECS",
+    "unity": "2022.3",
+    "version": "1.0.0",
+    "keywords": ["morpeh", "ecs", "graphics", "dots", "unity", "brg", "batchrenderergroup"],
+    "dependencies": 
+    {
+        "com.unity.burst": "1.8.12",
+        "com.unity.collections": "2.1.4",
+        "com.unity.mathematics": "1.2.6"
+    }
+}

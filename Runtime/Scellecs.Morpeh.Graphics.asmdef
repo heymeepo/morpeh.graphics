@@ -1,0 +1,21 @@
+{
+    "name": "Scellecs.Morpeh.Graphics",
+    "rootNamespace": "",
+    "references": [
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:3377deebfb0acde45876d12c6e3d27cc",
+        "GUID:e7f3544f233681345800e6daa01357c0",
+        "GUID:55db836df77fa934daa1244c4db8a184"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
