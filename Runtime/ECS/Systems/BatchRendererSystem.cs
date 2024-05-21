@@ -47,7 +47,6 @@ namespace Scellecs.Morpeh.Graphics
             graphicsArchetypes.Update();
             UpdateBatches();
             ExecuteGpuUploads();
-            //TestLoadedData();
         }
 
         public void Dispose()
@@ -299,30 +298,6 @@ namespace Scellecs.Morpeh.Graphics
             JobHandle.CombineDependencies(uploadGpuOperationsHandle, uploadValueBlitsHandle).Complete();
             valueBlits.Clear();
             brgBuffer.EndAndCommit();
-        }
-
-        private void TestLoadedData()
-        {
-            var buffer = brgBuffer.buffer;
-            int batchIndex = 20;
-
-            var batchInfo = batchInfos[batchIndex];
-            var archetype = graphicsArchetypes.GetGraphicsArchetypeByIndex(batchInfo.archetypeIndex);
-            byte[] array = new byte[112 * archetype.maxEntitiesPerBatch];
-
-            if (brgBuffer.bufferSize >= batchInfo.batchGpuAllocation.begin)
-            {
-                buffer.GetData(array, 0, (int)batchInfo.batchGpuAllocation.begin, 112 * archetype.maxEntitiesPerBatch);
-
-                fixed (byte* bufferPtr = &array[0])
-                {
-                    var dataOffset = archetype.sourceMetadataStream[2];
-                    var ptr = bufferPtr + dataOffset;
-                    var floatData = (float4*)ptr;
-                    Debug.Log(floatData[0]);
-                }
-            }
-
         }
 
         private JobHandle OnPerformCulling(
