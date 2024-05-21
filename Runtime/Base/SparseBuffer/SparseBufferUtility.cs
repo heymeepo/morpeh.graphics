@@ -1,4 +1,5 @@
-﻿using Unity.Collections;
+﻿using Unity.Burst;
+using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -11,6 +12,7 @@ namespace Scellecs.Morpeh.Graphics
             return new GraphicsBuffer(args.target, args.flags, (int)bufferSize / args.stride, args.stride);
         }
 
+        [BurstCompile]
         public static SparseBufferUploadRequirements ComputeUploadSizeRequirements(int numGpuUploadOperations, NativeArray<GpuUploadOperation> gpuUploadOperations, NativeArray<ValueBlitDescriptor> valueBlits)
         {
             var numOperations = numGpuUploadOperations + valueBlits.Length;
