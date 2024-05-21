@@ -2,10 +2,9 @@
 {
     internal struct ArchetypeProperty
     {
+        public int size;
         public int shaderId;
         public int componentTypeId;
         public long componentTypeHash;
-        public short size;
-        public short alignedSize;
     }
 }

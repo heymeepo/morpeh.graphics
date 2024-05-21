@@ -105,7 +105,6 @@ namespace Scellecs.Morpeh.Graphics
                 var newBuffer = SparseBufferUtility.CreateGraphicsBuffer(ref args, bufferSize);
                 uploader.ReplaceBuffer(newBuffer, true);
                 Handle = newBuffer.bufferHandle;
-                Debug.Log(true);
                 buffer.Dispose();
                 buffer = newBuffer;
                 return true;

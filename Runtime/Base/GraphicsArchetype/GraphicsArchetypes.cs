@@ -68,15 +68,13 @@ namespace Scellecs.Morpeh.Graphics
                 var attribute = componentType.GetAttribute<BatchMaterialPropertyAttribute>();
                 var shaderId = Shader.PropertyToID(attribute.MaterialPropertyId);
                 var size = (short)attribute.Format.GetSizeFormat();
-                var alignedSize = (short)Align16Bytes(size);
 
                 var property = new ArchetypeProperty()
                 {
                     shaderId = shaderId,
                     componentTypeId = typeId,
                     componentTypeHash = typeHash,
-                    size = size,
-                    alignedSize = alignedSize
+                    size = size
                 };
 
                 propertiesTypeIdCache.Add(typeId, property, out _);
@@ -97,15 +95,13 @@ namespace Scellecs.Morpeh.Graphics
                 shaderId = OBJECT_TO_WORLD_ID,
                 componentTypeId = MorpehInternalTools.GetTypeId(typeof(LocalToWorld)),
                 componentTypeHash = MorpehInternalTools.GetTypeHash(typeof(LocalToWorld)),
-                size = SIZE_OF_MATRIX3X4,
-                alignedSize = SIZE_OF_MATRIX3X4
+                size = SIZE_OF_MATRIX3X4
             };
 
             propertiesTypeIdCache.data[worldToObjectIndex] = new ArchetypeProperty()
             {
                 shaderId = WORLD_TO_OBJECT_ID,
-                size = SIZE_OF_MATRIX3X4,
-                alignedSize = SIZE_OF_MATRIX3X4
+                size = SIZE_OF_MATRIX3X4
             };
 
             newArchetypeIncludeMappingBuffer = new int[basePropertiesCount];
@@ -241,7 +237,7 @@ namespace Scellecs.Morpeh.Graphics
 
             for (int i = 0; i < properties.Length; i++)
             {
-                ref var size = ref propertiesTypeIdCache.GetValueRefByIndex(properties[i]).alignedSize;
+                ref var size = ref propertiesTypeIdCache.GetValueRefByIndex(properties[i]).size;
                 bytesPerEntity += size;
             }
 
@@ -252,7 +248,7 @@ namespace Scellecs.Morpeh.Graphics
 
             for (int i = 1; i < propertiesCount; i++)
             {
-                int sizeBytesComponent = Align16Bytes(propertiesTypeIdCache.GetValueByIndex(properties[i - 1]).alignedSize * maxEntitiesPerBatch);
+                int sizeBytesComponent = Align16Bytes(propertiesTypeIdCache.GetValueByIndex(properties[i - 1]).size * maxEntitiesPerBatch);
                 overrideStream[i] = overrideStream[i - 1] + sizeBytesComponent;
             }
 

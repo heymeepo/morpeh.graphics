@@ -45,17 +45,17 @@ namespace Scellecs.Morpeh.Graphics
         {
             if (propertiesIndices.IsCreated)
             {
-                propertiesIndices.Dispose();
+                propertiesIndices.Dispose(default);
             }
 
             if (batchesIndices.IsCreated)
             {
-                batchesIndices.Dispose();
+                batchesIndices.Dispose(default);
             }
 
             if (sourceMetadataStream.IsCreated)
             {
-                sourceMetadataStream.Dispose();
+                sourceMetadataStream.Dispose(default);
             }
         }
     }

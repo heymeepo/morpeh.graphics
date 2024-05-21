@@ -8,9 +8,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEditor.Graphs;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BRGHelpers;
 
@@ -31,7 +29,6 @@ namespace Scellecs.Morpeh.Graphics
         private BitMap unreferencedBatchesIndices;
 
         private ResizableArray<BatchInfo> batchInfos;
-
         private Stash<SharedBRG> brgStash;
 
         public void OnAwake()
@@ -55,7 +52,7 @@ namespace Scellecs.Morpeh.Graphics
             brg.Dispose();
             brgBuffer.Dispose();
             graphicsArchetypes.Dispose();
-            valueBlits.Dispose();
+            valueBlits.Dispose(default);
             batchInfos.Dispose();
         }
 
