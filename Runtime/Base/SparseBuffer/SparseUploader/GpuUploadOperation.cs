@@ -47,9 +47,9 @@ namespace Scellecs.Morpeh.Graphics
         public int BytesRequiredInUploadBuffer => size;
     }
 
-    internal struct UploadDataSource
+    internal unsafe struct UploadDataSource
     {
-        public UnmanagedStash srcData;
+        public UnmanagedStash* srcData;
         public NativeFilter filter;
         public int filterOffset;
         public int count;

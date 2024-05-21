@@ -47,6 +47,7 @@ namespace Scellecs.Morpeh.Graphics
             graphicsArchetypes.Update();
             UpdateBatches();
             ExecuteGpuUploads();
+            //TestLoadedData();
         }
 
         public void Dispose()
@@ -250,14 +251,13 @@ namespace Scellecs.Morpeh.Graphics
             fixed (int* archetypesIndicesPtr = &archetypesIndices.data[0])
             fixed (GraphicsArchetype* archetypesPtr = &archetypes.data[0])
             fixed (ArchetypeProperty* propertiesPtr = &properties.data[0])
-            fixed (UnmanagedStash* stashesPtr = &stashes[0])
             {
                 new SetupGpuUploadOperationsJob()
                 {
                     archetypesIndices = archetypesIndicesPtr,
                     archetypes = archetypesPtr,
                     properties = propertiesPtr,
-                    propertiesStashes = stashesPtr,
+                    propertiesStashes = (UnmanagedStash*)stashes.GetUnsafePtr(),
                     batchInfos = batchInfos.GetUnsafePtr(),
                     numGpuUploadOperations = numGpuUploads.GetUnsafePtr(),
                     gpuUploadOperations = gpuUploadOperations
@@ -299,6 +299,30 @@ namespace Scellecs.Morpeh.Graphics
             JobHandle.CombineDependencies(uploadGpuOperationsHandle, uploadValueBlitsHandle).Complete();
             valueBlits.Clear();
             brgBuffer.EndAndCommit();
+        }
+
+        private void TestLoadedData()
+        {
+            var buffer = brgBuffer.buffer;
+            int batchIndex = 20;
+
+            var batchInfo = batchInfos[batchIndex];
+            var archetype = graphicsArchetypes.GetGraphicsArchetypeByIndex(batchInfo.archetypeIndex);
+            byte[] array = new byte[112 * archetype.maxEntitiesPerBatch];
+
+            if (brgBuffer.bufferSize >= batchInfo.batchGpuAllocation.begin)
+            {
+                buffer.GetData(array, 0, (int)batchInfo.batchGpuAllocation.begin, 112 * archetype.maxEntitiesPerBatch);
+
+                fixed (byte* bufferPtr = &array[0])
+                {
+                    var dataOffset = archetype.sourceMetadataStream[2];
+                    var ptr = bufferPtr + dataOffset;
+                    var floatData = (float4*)ptr;
+                    Debug.Log(floatData[0]);
+                }
+            }
+
         }
 
         private JobHandle OnPerformCulling(
@@ -361,7 +385,7 @@ namespace Scellecs.Morpeh.Graphics
 
                     var uploadSrc = new UploadDataSource()
                     {
-                        srcData = propertiesStashes[propertyIndex],
+                        srcData = propertiesStashes + propertyIndex,
                         filter = archetype.entities,
                         filterOffset = srcFilterOffset,
                         count = srcCount
@@ -381,7 +405,7 @@ namespace Scellecs.Morpeh.Graphics
 
                     var uploadSrc = new UploadDataSource()
                     {
-                        srcData = propertiesStashes[propertyIndex],
+                        srcData = propertiesStashes + propertyIndex,
                         filter = archetype.entities,
                         filterOffset = srcFilterOffset,
                         count = srcCount
@@ -425,6 +449,30 @@ namespace Scellecs.Morpeh.Graphics
                 case GpuUploadOperation.UploadOperationKind.Memcpy:
                     threadedSparseUploader.AddUpload(ref operation.src, operation.dstOffset);
                     break;                
+                
+                //case GpuUploadOperation.UploadOperationKind.UploadFloat:
+                //    threadedSparseUploader.AddUpload<float>(ref operation.src, operation.dstOffset);
+                //    break;
+
+                //case GpuUploadOperation.UploadOperationKind.UploadFloat2:
+                //    threadedSparseUploader.AddUpload<float2>(ref operation.src, operation.dstOffset);
+                //    break;
+
+                //case GpuUploadOperation.UploadOperationKind.UploadFloat3:
+                //    threadedSparseUploader.AddUpload<float3>(ref operation.src, operation.dstOffset);
+                //    break;
+
+                //case GpuUploadOperation.UploadOperationKind.UploadFloat4:
+                //    threadedSparseUploader.AddUpload<float4>(ref operation.src, operation.dstOffset);
+                //    break;
+
+                //case GpuUploadOperation.UploadOperationKind.UploadFloat3x4:
+                //    threadedSparseUploader.AddUpload<float3x4>(ref operation.src, operation.dstOffset);
+                //    break;
+
+                //case GpuUploadOperation.UploadOperationKind.UploadFloat4x4:
+                //    threadedSparseUploader.AddUpload<float4x4>(ref operation.src, operation.dstOffset);
+                //    break;
 
                 case GpuUploadOperation.UploadOperationKind.SOAMatrixUpload3x4:
                     threadedSparseUploader.AddMatrixUpload(ref operation.src, operation.dstOffset, operation.dstOffsetInverse);

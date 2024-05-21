@@ -17,7 +17,7 @@ namespace Scellecs.Morpeh.Graphics
         private World world;
 
         private IntHashMap<ArchetypeProperty> propertiesTypeIdCache;
-        private UnmanagedStash[] propertiesStashes;
+        private NativeArray<UnmanagedStash> propertiesStashes;
 
         private LongHashMap<GraphicsArchetype> graphicsArchetypes;
         private LongHashMap<Filter> graphicsArchetypesFilters;
@@ -109,7 +109,7 @@ namespace Scellecs.Morpeh.Graphics
             };
 
             newArchetypeIncludeMappingBuffer = new int[basePropertiesCount];
-            propertiesStashes = new UnmanagedStash[totalPropertiesCount];
+            propertiesStashes = new NativeArray<UnmanagedStash>(totalPropertiesCount, Allocator.Persistent);
             CreateGraphicsArchetype(0, 0, newArchetypeIncludeMappingBuffer);
         }
 
@@ -120,11 +120,13 @@ namespace Scellecs.Morpeh.Graphics
                 ref var graphicsArchetype = ref graphicsArchetypes.GetValueRefByIndex(idx);
                 graphicsArchetype.Dispose();
             }
+
+            propertiesStashes.Dispose(default);
         }
 
         public int GetArchetypePropertiesCount() => totalPropertiesCount;
 
-        public UnmanagedStash[] GetArchetypesPropertiesStashes() => propertiesStashes;
+        public NativeArray<UnmanagedStash> GetArchetypesPropertiesStashes() => propertiesStashes;
 
         public LongHashMap<GraphicsArchetype> GetGraphicsArchetypesMap() => graphicsArchetypes;
 

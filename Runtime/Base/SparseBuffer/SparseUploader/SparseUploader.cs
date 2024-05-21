@@ -203,7 +203,7 @@ namespace Scellecs.Morpeh.Graphics
         {
             var count = uploadArgs.count;
             var opsize = UnsafeUtility.SizeOf<Operation>();
-            var size = (int)uploadArgs.srcData.elementSize * count;
+            var size = (int)uploadArgs.srcData->elementSize * count;
             var allocSucceeded = TryAlloc(opsize, size, out var dst, out var operationOffset, out var dataOffset);
 
             if (!allocSucceeded)
@@ -218,7 +218,7 @@ namespace Scellecs.Morpeh.Graphics
             }
 
             byte* srcBuffer = dst + dataOffset;
-            ref var srcData = ref uploadArgs.srcData.Convert<byte>();
+            ref var srcData = ref uploadArgs.srcData->Convert<byte>();
             var sizeOf = (int)srcData.elementSize;
             var filter = uploadArgs.filter;
             var filterOffset = uploadArgs.filterOffset;
@@ -259,7 +259,7 @@ namespace Scellecs.Morpeh.Graphics
             }
 
             float3x4* srcBuffer = (float3x4*)(dst + dataOffset);
-            ref var srcData = ref uploadArgs.srcData.Convert<float4x4>();
+            ref var srcData = ref uploadArgs.srcData->Convert<float4x4>();
             var filter = uploadArgs.filter;
             var filterOffset = uploadArgs.filterOffset;
 
