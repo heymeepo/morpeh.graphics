@@ -43,7 +43,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
-            threadAllocator.Rewind();
+            //threadAllocator.Rewind();
             graphicsArchetypes.Update();
             UpdateBatches();
             ExecuteGpuUploads();
@@ -55,7 +55,7 @@ namespace Scellecs.Morpeh.Graphics
             brgBuffer.Dispose();
             graphicsArchetypes.Dispose();
             batchInfos.Dispose();
-            threadAllocator.Dispose();
+            //threadAllocator.Dispose();
             valueBlits.Dispose(default);
             threadedBatchContext = default;
         }
@@ -236,6 +236,7 @@ namespace Scellecs.Morpeh.Graphics
 
         private void ExecuteGpuUploads()
         {
+            var inputDeps = World.JobHandle;
             var allocator = World.GetUpdateAllocator();
 
             int maximumGpuUploads = existingBatchIndices.length * graphicsArchetypes.GetArchetypePropertiesCount();
@@ -261,7 +262,7 @@ namespace Scellecs.Morpeh.Graphics
                     numGpuUploadOperations = numGpuUploads.GetUnsafePtr(),
                     gpuUploadOperations = gpuUploadOperations
                 }
-                .ScheduleParallel(archetypesIndices.length, 16, default).Complete();
+                .ScheduleParallel(archetypesIndices.length, 16, inputDeps).Complete();
             }
 
             var beginRequirements = SparseBufferUtility.ComputeUploadSizeRequirements(numGpuUploads.Value, gpuUploadOperations, valueBlits.AsArray());

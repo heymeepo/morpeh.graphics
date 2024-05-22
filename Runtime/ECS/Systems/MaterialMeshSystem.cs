@@ -1,4 +1,5 @@
-﻿using Scellecs.Morpeh.Transforms;
+﻿using Scellecs.Morpeh.Graphics.Culling;
+using Scellecs.Morpeh.Transforms;
 using UnityEngine.Rendering;
 
 namespace Scellecs.Morpeh.Graphics
@@ -16,6 +17,9 @@ namespace Scellecs.Morpeh.Graphics
         private Stash<MaterialMeshInfo> materialMeshInfoStash;
         private Stash<MaterialMeshManaged> materialMeshManagedStash;
 
+        private Stash<RenderBounds> renderBoundsStash;
+        private Stash<WorldRenderBounds> worldRenderBoundsStash;
+
         public void OnAwake()
         {
             brgFilter = World.Filter
@@ -26,6 +30,8 @@ namespace Scellecs.Morpeh.Graphics
                 .With<LocalToWorld>()
                 .With<MaterialMeshManaged>()
                 .Without<MaterialMeshInfo>()
+                .Without<RenderBounds>()
+                .Without<WorldRenderBounds>()
                 .Build();
 
             unregisterMaterialMeshFilter = World.Filter
@@ -35,6 +41,7 @@ namespace Scellecs.Morpeh.Graphics
 
             changeMaterialMeshFilter = World.Filter
                 .With<LocalToWorld>()
+                .With<RenderBounds>()
                 .With<MaterialMeshInfo>()
                 .With<MaterialMeshManaged>()
                 .Build();
@@ -42,6 +49,8 @@ namespace Scellecs.Morpeh.Graphics
             brgStash = World.GetStash<SharedBRG>();
             materialMeshInfoStash = World.GetStash<MaterialMeshInfo>();
             materialMeshManagedStash = World.GetStash<MaterialMeshManaged>();
+            renderBoundsStash = World.GetStash<RenderBounds>();
+            worldRenderBoundsStash = World.GetStash<WorldRenderBounds>();
         }
 
         public void OnUpdate(float deltaTime)
@@ -66,6 +75,12 @@ namespace Scellecs.Morpeh.Graphics
                     submeshIndex = 0
                 });
 
+                renderBoundsStash.Set(entity, new RenderBounds()
+                {
+                    value = managed.mesh.bounds.ToAABB()
+                });
+
+                worldRenderBoundsStash.Add(entity);
                 materialMeshManagedStash.Remove(entity);
             }
         }
@@ -89,6 +104,7 @@ namespace Scellecs.Morpeh.Graphics
             {
                 ref var managed = ref materialMeshManagedStash.Get(entity);
                 ref var materialMeshInfo = ref materialMeshInfoStash.Get(entity);
+                ref var renderBounds = ref renderBoundsStash.Get(entity);
 
                 brg.UnregisterMesh(materialMeshInfo.meshID);
                 brg.UnregisterMaterial(materialMeshInfo.materialID);
@@ -96,6 +112,7 @@ namespace Scellecs.Morpeh.Graphics
                 materialMeshInfo.meshID = brg.RegisterMesh(managed.mesh);
                 materialMeshInfo.materialID = brg.RegisterMaterial(managed.material);
 
+                renderBounds.value = managed.mesh.bounds.ToAABB();
                 materialMeshManagedStash.Remove(entity);
             }
         }
