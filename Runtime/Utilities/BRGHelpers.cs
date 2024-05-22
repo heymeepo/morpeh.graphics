@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Unity.Jobs.LowLevel.Unsafe;
+using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Scellecs.Morpeh.Graphics.Utilities
@@ -27,8 +28,11 @@ namespace Scellecs.Morpeh.Graphics.Utilities
         public const uint BATCH_ALLOCATION_ALIGNMENT = 16;
         public const uint MSB = 0x80000000;
 
+        public static readonly int MAX_JOB_WORKERS = JobsUtility.ThreadIndexCount;
+
         public static readonly int OBJECT_TO_WORLD_ID = Shader.PropertyToID("unity_ObjectToWorld");
         public static readonly int WORLD_TO_OBJECT_ID = Shader.PropertyToID("unity_WorldToObject");
+
 
         public static BatchID IntAsBatchID(int id) => new BatchID() { value = (uint)id };
 

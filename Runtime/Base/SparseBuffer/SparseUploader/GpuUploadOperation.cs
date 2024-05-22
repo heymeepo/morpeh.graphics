@@ -1,7 +1,4 @@
-﻿using Scellecs.Morpeh.Native;
-using Scellecs.Morpeh.Workaround;
-
-namespace Scellecs.Morpeh.Graphics
+﻿namespace Scellecs.Morpeh.Graphics
 {
     internal unsafe struct GpuUploadOperation
     {
@@ -15,11 +12,6 @@ namespace Scellecs.Morpeh.Graphics
         /// Which kind of upload operation this is
         /// </summary>
         public UploadOperationKind kind;
-
-        /// <summary>
-        /// If a matrix upload, what matrix type is this?
-        /// </summary>
-        public MatrixType srcMatrixType;
 
         /// <summary>
         /// Source data
@@ -45,13 +37,5 @@ namespace Scellecs.Morpeh.Graphics
         /// Raw uploads require their size in bytes from the upload buffer.
         /// </summary>
         public int BytesRequiredInUploadBuffer => size;
-    }
-
-    internal unsafe struct UploadDataSource
-    {
-        public UnmanagedStash* srcData;
-        public NativeFilter filter;
-        public int filterOffset;
-        public int count;
     }
 }

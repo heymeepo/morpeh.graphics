@@ -49,10 +49,10 @@ namespace Scellecs.Morpeh.Graphics
             allocator.Release(allocation);
         }
 
-        public ThreadedSparseUploader Begin(in SparseBufferUploadRequirements args, out bool resized)
+        public ThreadedSparseUploader Begin(in SparseBufferUploadRequirements req, out bool resized)
         {
-            resized = CheckResize();
-            threadedUploader = uploader.Begin(args.totalUploadBytes, args.biggestUploadBytes, args.numOperations);
+            resized = Resize();
+            threadedUploader = uploader.Begin(req.totalUploadBytes, req.biggestUploadBytes, req.numOperations);
             return threadedUploader;
         }
 
@@ -81,7 +81,7 @@ namespace Scellecs.Morpeh.Graphics
             buffer = default;
         }
 
-        private bool CheckResize()
+        private bool Resize()
         {
             var persistentBytes = allocator.OnePastHighestUsedAddress;
 

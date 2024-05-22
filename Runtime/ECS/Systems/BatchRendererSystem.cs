@@ -28,6 +28,8 @@ namespace Scellecs.Morpeh.Graphics
         private IntHashSet existingBatchIndices;
         private BitMap unreferencedBatchesIndices;
 
+        private ThreadLocalAllocator threadAllocator;
+
         private ResizableArray<BatchInfo> batchInfos;
         private Stash<SharedBRG> brgStash;
 
@@ -41,6 +43,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
+            threadAllocator.Rewind();
             graphicsArchetypes.Update();
             UpdateBatches();
             ExecuteGpuUploads();
@@ -48,12 +51,13 @@ namespace Scellecs.Morpeh.Graphics
 
         public void Dispose()
         {
-            threadedBatchContext = default;
             brg.Dispose();
             brgBuffer.Dispose();
             graphicsArchetypes.Dispose();
-            valueBlits.Dispose(default);
             batchInfos.Dispose();
+            threadAllocator.Dispose();
+            valueBlits.Dispose(default);
+            threadedBatchContext = default;
         }
 
         private void InitializeBatchRenderer()
@@ -64,8 +68,6 @@ namespace Scellecs.Morpeh.Graphics
             {
                 BatchCullingViewType.Camera,
                 BatchCullingViewType.Light,
-                BatchCullingViewType.Picking,
-                BatchCullingViewType.SelectionOutline
             });
 
             brg.SetGlobalBounds(new Bounds(float3.zero, new float3(1048576f)));
@@ -74,6 +76,7 @@ namespace Scellecs.Morpeh.Graphics
             unreferencedBatchesIndices = new BitMap();
             existingBatchIndices = new IntHashSet();
             batchInfos = new ResizableArray<BatchInfo>();
+            threadAllocator = new ThreadLocalAllocator();
         }
 
         private void InitializeSharedBatchRenderer()
@@ -303,7 +306,7 @@ namespace Scellecs.Morpeh.Graphics
             BatchCullingOutput cullingOutput,
             IntPtr userContext)
         {
-            //Debug.Log("CullCallback");
+            //var visibilityItems = new IndirectList<>
 
             return default;
         }
@@ -395,7 +398,6 @@ namespace Scellecs.Morpeh.Graphics
             gpuUploadOperations[index] = new GpuUploadOperation
             {
                 kind = kind,
-                srcMatrixType = MatrixType.MatrixType4x4,
                 src = src,
                 dstOffset = dstOffset,
                 dstOffsetInverse = dstOffsetInverse,
@@ -421,30 +423,6 @@ namespace Scellecs.Morpeh.Graphics
                 case GpuUploadOperation.UploadOperationKind.Memcpy:
                     threadedSparseUploader.AddUpload(ref operation.src, operation.dstOffset);
                     break;                
-                
-                //case GpuUploadOperation.UploadOperationKind.UploadFloat:
-                //    threadedSparseUploader.AddUpload<float>(ref operation.src, operation.dstOffset);
-                //    break;
-
-                //case GpuUploadOperation.UploadOperationKind.UploadFloat2:
-                //    threadedSparseUploader.AddUpload<float2>(ref operation.src, operation.dstOffset);
-                //    break;
-
-                //case GpuUploadOperation.UploadOperationKind.UploadFloat3:
-                //    threadedSparseUploader.AddUpload<float3>(ref operation.src, operation.dstOffset);
-                //    break;
-
-                //case GpuUploadOperation.UploadOperationKind.UploadFloat4:
-                //    threadedSparseUploader.AddUpload<float4>(ref operation.src, operation.dstOffset);
-                //    break;
-
-                //case GpuUploadOperation.UploadOperationKind.UploadFloat3x4:
-                //    threadedSparseUploader.AddUpload<float3x4>(ref operation.src, operation.dstOffset);
-                //    break;
-
-                //case GpuUploadOperation.UploadOperationKind.UploadFloat4x4:
-                //    threadedSparseUploader.AddUpload<float4x4>(ref operation.src, operation.dstOffset);
-                //    break;
 
                 case GpuUploadOperation.UploadOperationKind.SOAMatrixUpload3x4:
                     threadedSparseUploader.AddMatrixUpload(ref operation.src, operation.dstOffset, operation.dstOffsetInverse);
