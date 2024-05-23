@@ -1,10 +1,10 @@
 ﻿using Unity.Jobs.LowLevel.Unsafe;
-using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine;
 
 namespace Scellecs.Morpeh.Graphics.Utilities
 {
-    internal static class BRGHelpers
+    internal static class BrgHelpers
     {
         public const int SIZE_OF_UINT = sizeof(uint);
         public const int SIZE_OF_FLOAT = sizeof(float);

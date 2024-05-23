@@ -10,7 +10,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
-using static Scellecs.Morpeh.Graphics.Utilities.BRGHelpers;
+using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {

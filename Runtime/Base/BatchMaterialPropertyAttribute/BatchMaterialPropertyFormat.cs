@@ -1,5 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
-using static Scellecs.Morpeh.Graphics.Utilities.BRGHelpers;
+using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {

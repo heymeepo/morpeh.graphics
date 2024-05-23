@@ -13,7 +13,7 @@ namespace Scellecs.Morpeh.Graphics
     {
         public const int kInitialSize = 1024 * 1024;
         public const Allocator kAllocator = Allocator.Persistent;
-        public static readonly int NumThreads = BRGHelpers.MAX_JOB_WORKERS;
+        public static readonly int NumThreads = BrgHelpers.MAX_JOB_WORKERS;
 
         [StructLayout(LayoutKind.Explicit, Size = JobsUtility.CacheLineSize)]
         public unsafe struct PaddedAllocator

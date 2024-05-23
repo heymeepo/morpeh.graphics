@@ -8,7 +8,7 @@ using System;
 using System.Linq;
 using Unity.Collections;
 using UnityEngine;
-using static Scellecs.Morpeh.Graphics.Utilities.BRGHelpers;
+using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {

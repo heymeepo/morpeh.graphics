@@ -28,10 +28,10 @@ namespace Scellecs.Morpeh.Graphics
             return ref handle.propertiesTypeIdCache.GetValueRefByIndex(index);
         }
 
-        public FastList<int> GetUsedGraphicsArchetypesIndices()
+        public ReadOnlyIntFastList GetUsedGraphicsArchetypesIndices()
         {
             ThrowExceptionIfIsNotValid();
-            return handle.usedGraphicsArchetypesIndices;
+            return handle.usedGraphicsArchetypesIndices.AsReadOnly();
         }
 
         public unsafe NativeGraphicsArchetypes AsNative()

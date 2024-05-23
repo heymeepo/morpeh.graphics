@@ -2,9 +2,9 @@
 
 namespace Scellecs.Morpeh.Graphics.Utilities
 {
-    internal static class ECSHelpers
+    internal static class EcsHelpers
     {
-        public static BatchRendererGroupContext GetBrgContext(World world)
+        public static BatchRendererGroupContext GetBatchRendererGroupContext(World world)
         {
             var brgStash = world.GetStash<SharedBatchRendererGroupContext>();
             var enumerator = brgStash.GetEnumerator();

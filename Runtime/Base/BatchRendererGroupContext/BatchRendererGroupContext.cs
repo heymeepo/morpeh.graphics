@@ -6,7 +6,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
-using static Scellecs.Morpeh.Graphics.Utilities.BRGHelpers;
+using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {
@@ -20,7 +20,7 @@ namespace Scellecs.Morpeh.Graphics
         private ResizableArray<BatchInfo> batchInfos;
         private ResizableArray<BatchAABB> batchAABBs;
 
-        private IntHashSet existingBatchIndices;
+        private IntHashSet existingBatchesIndices;
         private BatchRendererGroup.OnPerformCulling cullingCallback;
 
         private uint bytesPerBatch;
@@ -33,7 +33,7 @@ namespace Scellecs.Morpeh.Graphics
             overrides = new ResizableArray<MaterialPropertyOverride>();
             batchInfos = new ResizableArray<BatchInfo>();
             batchAABBs = new ResizableArray<BatchAABB>();
-            existingBatchIndices = new IntHashSet();
+            existingBatchesIndices = new IntHashSet();
             threadedBatchContext = brg.GetThreadedBatchContext();
             this.bytesPerBatch = bytesPerBatch;
             this.batchAllocationAlignment = batchAllocationAlignment;
@@ -68,7 +68,7 @@ namespace Scellecs.Morpeh.Graphics
 
             batchID = threadedBatchContext.AddBatch(metadata, brgBuffer.Handle);
             var batchIndex = batchID.AsInt();
-            existingBatchIndices.Add(batchIndex);
+            existingBatchesIndices.Add(batchIndex);
             batchInfos.AddAt(batchIndex, batchInfo);
             batchAABBs.AddAt(batchIndex, default);
 
@@ -79,7 +79,7 @@ namespace Scellecs.Morpeh.Graphics
         {
             var batchIndex = batchID.AsInt();
             var batchInfo = batchInfos[batchIndex];
-            existingBatchIndices.Remove(batchIndex);
+            existingBatchesIndices.Remove(batchIndex);
             threadedBatchContext.RemoveBatch(batchID);
 
             if (batchInfo.batchGpuAllocation.Empty == false)
@@ -95,6 +95,12 @@ namespace Scellecs.Morpeh.Graphics
         public void UnregisterMesh(BatchMeshID meshID) => brg.UnregisterMesh(meshID);
 
         public void UnregisterMaterial(BatchMaterialID materialID) => brg.UnregisterMaterial(materialID);
+
+        public ReadOnlyIntHashSet GetExistingBatchesIndices() => existingBatchesIndices.AsReadOnly();
+
+        public unsafe BatchInfo* GetBatchInfosUnsafePtr() => batchInfos.GetUnsafePtr();
+
+        public unsafe BatchAABB* GetBatchAABBsUnsafePtr() => batchAABBs.GetUnsafePtr();
 
         public void Dispose()
         {

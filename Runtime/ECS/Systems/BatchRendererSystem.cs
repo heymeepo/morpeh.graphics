@@ -14,7 +14,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
-using static Scellecs.Morpeh.Graphics.Utilities.BRGHelpers;
+using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {
@@ -34,9 +34,9 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brg = ECSHelpers.GetBrgContext(World);
+            brg = EcsHelpers.GetBatchRendererGroupContext(World);
             brg.SetCullingCallback(OnPerformCulling);
-            graphicsArchetypes = ECSHelpers.GetGraphicsArchetypesContext(World);
+            graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
 
 
             //InitializeSharedBatchRenderer();
@@ -45,7 +45,6 @@ namespace Scellecs.Morpeh.Graphics
         public void OnUpdate(float deltaTime)
         {
             //threadAllocator.Rewind();
-            UpdateBatches();
             ExecuteGpuUploads();
         }
 
@@ -79,124 +78,6 @@ namespace Scellecs.Morpeh.Graphics
         //        }
         //    };
         //}
-
-        private void AddBatches(NativeList<BatchCreateInfo> createInfos)
-        {
-            //for (int i = 0; i < createInfos.Length; i++)
-            //{
-            //    var info = createInfos[i];
-            //    ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(info.archetypeIndex);
-
-            //    for (int j = 0; j < info.batchesCount; j++)
-            //    {
-            //        AddBatch(ref archetype, info.archetypeIndex);
-            //    }
-            //}
-        }
-
-        private unsafe bool AddBatch(ref GraphicsArchetype archetype, int archetypeIndex)
-        {
-            //if (brgBuffer.Allocate(BYTES_PER_BATCH_RAW_BUFFER, BATCH_ALLOCATION_ALIGNMENT, out var batchGpuAllocation) == false)
-            //{
-            //    return false;
-            //}
-
-            //var overrides = archetype.propertiesIndices;
-            //var overrideStream = archetype.sourceMetadataStream;
-            //var metadata = new NativeArray<MetadataValue>(archetype.propertiesIndices.Length, Allocator.Temp);
-
-            //var batchInfo = new BatchInfo()
-            //{
-            //    //batchGpuAllocation = batchGpuAllocation,
-            //    //archetypeIndex = archetypeIndex
-            //};
-
-            //var batchBegin = (int)batchGpuAllocation.begin;
-
-            //for (int i = 0; i < archetype.propertiesIndices.Length; i++)
-            //{
-            //    int gpuAddress = batchBegin + overrideStream[i];
-            //    ref var property = ref graphicsArchetypes.GetArchetypePropertyByIndex(overrides[i]);
-            //    metadata[i] = CreateMetadataValue(property.shaderId, gpuAddress);
-            //}
-
-            //var batchID = threadedBatchContext.AddBatch(metadata, brgBuffer.Handle);
-            //var batchIndex = batchID.AsInt();
-            //existingBatchIndices.Add(batchIndex);
-            //batchInfos.AddAt(batchIndex, batchInfo);
-            //batchAABBs.AddAt(batchIndex, default);
-            //archetype.batchesIndices.Add(batchIndex);
-
-            return true;
-        }
-
-        private void ReleaseUnreferencedBatches(BitMap batchesIndices)
-        {
-            foreach (var batchIndex in batchesIndices)
-            {
-                RemoveBatch(batchIndex);
-            }
-        }
-
-        private void RemoveBatch(int batchIndex)
-        {
-            //var batchInfo = batchInfos[batchIndex];
-
-            //ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(batchInfo.archetypeIndex);
-            //archetype.batchesIndices.RemoveAt(archetype.batchesIndices.Length - 1);
-            //existingBatchIndices.Remove(batchIndex);
-            //threadedBatchContext.RemoveBatch(IntAsBatchID(batchIndex));
-
-            //if (batchInfo.batchGpuAllocation.Empty == false)
-            //{
-            //    brgBuffer.Free(batchInfo.batchGpuAllocation);
-            //}
-        }
-
-        private void UpdateBatches()
-        {
-            //unreferencedBatchesIndices.Clear();
-
-            //NativeList<BatchCreateInfo> batchCreateInfos = new NativeList<BatchCreateInfo>(Allocator.Temp);
-
-            //foreach (var batchIndex in existingBatchIndices)
-            //{
-            //    unreferencedBatchesIndices.Set(batchIndex);
-            //}
-
-            //var archetypesIndices = graphicsArchetypes.GetUsedArchetypesIndices();
-
-            //foreach (var graphicsArchetypeIndex in archetypesIndices)
-            //{
-            //    ref var graphicsArchetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(graphicsArchetypeIndex);
-
-            //    var expectedBatchesCount = graphicsArchetype.ExpectedBatchesCount();
-            //    var actualBatchesCount = graphicsArchetype.ActualBatchesCount();
-            //    var diff = expectedBatchesCount - actualBatchesCount;
-
-            //    if (diff > 0)
-            //    {
-            //        var batchCreate = new BatchCreateInfo()
-            //        {
-            //            archetypeIndex = graphicsArchetypeIndex,
-            //            batchesCount = diff
-            //        };
-
-            //        batchCreateInfos.Add(batchCreate);
-            //    }
-
-            //    if (actualBatchesCount > 0)
-            //    {
-            //        for (int i = 0; i < actualBatchesCount; i++)
-            //        {
-            //            unreferencedBatchesIndices.Unset(graphicsArchetype.batchesIndices[i]);
-            //        }
-            //    }
-            //}
-
-            //ReleaseUnreferencedBatches(unreferencedBatchesIndices);
-            //AddBatches(batchCreateInfos);
-        }
 
         private void ScheduleUpdateBatchesRenderBounds()
         {
