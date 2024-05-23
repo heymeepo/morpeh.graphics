@@ -1,8 +1,9 @@
 ﻿namespace Scellecs.Morpeh.Graphics
 {
-    internal struct BatchInfo
+    internal readonly struct BatchInfo
     {
-        public HeapBlock batchGpuAllocation;
-        public int archetypeIndex;
+        public readonly HeapBlock batchGpuAllocation;
+
+        public BatchInfo(HeapBlock allocation) => batchGpuAllocation = allocation;
     }
 }

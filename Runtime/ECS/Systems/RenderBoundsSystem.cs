@@ -50,7 +50,7 @@ namespace Scellecs.Morpeh.Graphics
     }
 
     [BurstCompile]
-    internal struct UpdateWorldRenderBoundsJob : IJobFor
+    internal struct UpdateWorldRenderBoundsJob : IJobFor //govno
     {
         public NativeFilter filter;
 

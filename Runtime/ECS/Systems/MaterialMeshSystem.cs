@@ -13,7 +13,7 @@ namespace Scellecs.Morpeh.Graphics
         private Filter unregisterMaterialMeshFilter;
         private Filter changeMaterialMeshFilter;
 
-        private Stash<SharedBRG> brgStash;
+        private Stash<SharedBatchRendererGroupContext> brgStash;
         private Stash<MaterialMeshInfo> materialMeshInfoStash;
         private Stash<MaterialMeshManaged> materialMeshManagedStash;
 
@@ -23,7 +23,7 @@ namespace Scellecs.Morpeh.Graphics
         public void OnAwake()
         {
             brgFilter = World.Filter
-                .With<SharedBRG>()
+                .With<SharedBatchRendererGroupContext>()
                 .Build();
 
             registerMaterialMeshFilter = World.Filter
@@ -46,7 +46,7 @@ namespace Scellecs.Morpeh.Graphics
                 .With<MaterialMeshManaged>()
                 .Build();
 
-            brgStash = World.GetStash<SharedBRG>();
+            brgStash = World.GetStash<SharedBatchRendererGroupContext>();
             materialMeshInfoStash = World.GetStash<MaterialMeshInfo>();
             materialMeshManagedStash = World.GetStash<MaterialMeshManaged>();
             renderBoundsStash = World.GetStash<RenderBounds>();
@@ -57,9 +57,9 @@ namespace Scellecs.Morpeh.Graphics
         {
             var brg = brgStash.Get(brgFilter.First()).brg;
 
-            RegisterNewEntitiesMaterialMeshInfo(brg);
-            UnregisterDeletedEntitiesMaterialMeshInfo(brg);
-            UpdateChangedMaterialMeshInfo(brg);
+            //RegisterNewEntitiesMaterialMeshInfo(brg);
+            //UnregisterDeletedEntitiesMaterialMeshInfo(brg);
+            //UpdateChangedMaterialMeshInfo(brg);
         }
 
         private void RegisterNewEntitiesMaterialMeshInfo(BatchRendererGroup brg)

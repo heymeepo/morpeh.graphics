@@ -1,5 +1,6 @@
-﻿using JetBrains.Annotations;
-using Scellecs.Morpeh.Collections;
+﻿using Scellecs.Morpeh.Collections;
+using Scellecs.Morpeh.Graphics.Collections;
+using Scellecs.Morpeh.Graphics.Utilities;
 using Scellecs.Morpeh.Native;
 using Scellecs.Morpeh.Transforms;
 using Scellecs.Morpeh.Workaround;
@@ -12,49 +13,73 @@ using static Scellecs.Morpeh.Graphics.Utilities.BRGHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {
-    internal sealed class GraphicsArchetypes : IDisposable
+    public sealed class GraphicsArchetypesSystem : ICleanupSystem
     {
-        private World world;
+        public World World { get; set; }
+
+        private GraphicsArchetypesHandle archetypesHandle;
+        private GraphicsArchetypesContext archetypes;
+        private BatchRendererGroupContext brg;
 
         private IntHashMap<ArchetypeProperty> propertiesTypeIdCache;
-        private NativeArray<UnmanagedStash> propertiesStashes;
+        private ResizableArray<UnmanagedStash> propertiesStashes;
 
         private LongHashMap<GraphicsArchetype> graphicsArchetypes;
         private LongHashMap<Filter> graphicsArchetypesFilters;
-
         private FastList<int> usedGraphicsArchetypesIndices;
-        private LongHashSet usedEcsArchetypes;
 
         private LongHashMap<GraphicsArchetype> newGraphicsArchetypes;
         private LongHashMap<Filter> newGraphicsArchetypesFilters;
-        private int[] newArchetypeIncludeMappingBuffer;
+        private int[] newArchetypeIncludeExcludeBuffer;
 
+        private LongHashSet usedEcsArchetypes;
         private Filter allExistingGraphicsEntitiesFilter;
+
+        private Stash<SharedGraphicsArchetypesContext> graphicsArchetypesStash;
 
         private int objectToWorldIndex;
         private int worldToObjectIndex;
 
-        private int basePropertiesCount;
-        private int totalPropertiesCount;
-
-        public GraphicsArchetypes(World world)
+        public void OnAwake()
         {
-            this.world = world;
-            propertiesTypeIdCache = new IntHashMap<ArchetypeProperty>(32);
-            usedEcsArchetypes = new LongHashSet(128);
-            graphicsArchetypes = new LongHashMap<GraphicsArchetype>(32);
-            graphicsArchetypesFilters = new LongHashMap<Filter>(32);
-            usedGraphicsArchetypesIndices = new FastList<int>(32);
-            newGraphicsArchetypes = new LongHashMap<GraphicsArchetype>(16);
-            newGraphicsArchetypesFilters = new LongHashMap<Filter>(16);
-        }
-
-        public void Initialize()
-        {
-            allExistingGraphicsEntitiesFilter = world.Filter
+            allExistingGraphicsEntitiesFilter = World.Filter
                 .With<LocalToWorld>()
                 .With<MaterialMeshInfo>()
                 .Build();
+            
+            brg = ECSHelpers.GetBrgContext(World);
+            InitializeGraphicsArchetypes();
+        }
+
+        public void OnUpdate(float deltaTime)
+        {
+            AddNewGraphicsArchetypes();
+            UpdateGraphicsArchetypesFilters();
+            GatherNewGraphicsArchetypes();
+            UpdateArchetypePropertiesStashes();
+        }
+
+        public void Dispose()
+        {
+            foreach (var idx in graphicsArchetypes)
+            {
+                ref var graphicsArchetype = ref graphicsArchetypes.GetValueRefByIndex(idx);
+                graphicsArchetype.Dispose();
+            }
+
+            propertiesStashes.Dispose();
+            archetypesHandle.Dispose();
+        }
+
+        private void InitializeGraphicsArchetypes()
+        {
+            propertiesTypeIdCache = new IntHashMap<ArchetypeProperty>();
+            graphicsArchetypes = new LongHashMap<GraphicsArchetype>();
+            graphicsArchetypesFilters = new LongHashMap<Filter>();
+            usedGraphicsArchetypesIndices = new FastList<int>();
+            newGraphicsArchetypes = new LongHashMap<GraphicsArchetype>();
+            newGraphicsArchetypesFilters = new LongHashMap<Filter>();
+            usedEcsArchetypes = new LongHashSet();
 
             var overrideComponentsTypes = ReflectionHelpers
                 .GetAssemblies()
@@ -71,75 +96,74 @@ namespace Scellecs.Morpeh.Graphics
 
                 var property = new ArchetypeProperty()
                 {
-                    //shaderId = shaderId,
-                    //componentTypeId = typeId,
-                    //componentTypeHash = typeHash,
-                    //size = size
+                    componentTypeId = typeId,
+                    componentTypeHash = typeHash,
+                    size = size
                 };
 
-                propertiesTypeIdCache.Add(typeId, property, out _);
+                var propertyOverride = new MaterialPropertyOverride()
+                {
+                    shaderId = shaderId,
+                    size = size
+                };
+
+                propertiesTypeIdCache.Add(typeId, property, out int propertyIndex);
+                brg.AddOverridenProperty(propertyOverride, propertyIndex);
             }
 
-            basePropertiesCount = propertiesTypeIdCache.data.Length;
-            totalPropertiesCount = basePropertiesCount + 2;
+
+            var basePropertiesArrayLength = propertiesTypeIdCache.data.Length;
+            var totalPropertiesArrayLength = basePropertiesArrayLength + 2;
 
             //Add two properties, objectToWorld and worldToObject, at the end of the internal propertiesTypeIdCache array under special indices.
             //This won't break hashmap enumerator, and it will give us the ability to access them directly by indices inside the jobs without unnecessary checks.
-            Array.Resize(ref propertiesTypeIdCache.data, totalPropertiesCount);
+            Array.Resize(ref propertiesTypeIdCache.data, totalPropertiesArrayLength);
 
-            objectToWorldIndex = totalPropertiesCount - 2;
-            worldToObjectIndex = totalPropertiesCount - 1;
+            objectToWorldIndex = totalPropertiesArrayLength - 2;
+            worldToObjectIndex = totalPropertiesArrayLength - 1;
 
             propertiesTypeIdCache.data[objectToWorldIndex] = new ArchetypeProperty()
             {
-                //shaderId = OBJECT_TO_WORLD_ID,
-                //componentTypeId = MorpehInternalTools.GetTypeId(typeof(LocalToWorld)),
-                //componentTypeHash = MorpehInternalTools.GetTypeHash(typeof(LocalToWorld)),
-                //size = SIZE_OF_MATRIX3X4
+                componentTypeId = MorpehInternalTools.GetTypeId(typeof(LocalToWorld)),
+                componentTypeHash = MorpehInternalTools.GetTypeHash(typeof(LocalToWorld)),
+                size = SIZE_OF_MATRIX3X4
             };
 
             propertiesTypeIdCache.data[worldToObjectIndex] = new ArchetypeProperty()
             {
-                //shaderId = WORLD_TO_OBJECT_ID,
-                //size = SIZE_OF_MATRIX3X4
+                size = SIZE_OF_MATRIX3X4
             };
 
-            newArchetypeIncludeMappingBuffer = new int[basePropertiesCount];
-            propertiesStashes = new NativeArray<UnmanagedStash>(totalPropertiesCount, Allocator.Persistent);
-            CreateGraphicsArchetype(0, 0, newArchetypeIncludeMappingBuffer);
-        }
-
-        public void Dispose()
-        {
-            foreach (var idx in graphicsArchetypes)
+            var objectToWorldOverride = new MaterialPropertyOverride()
             {
-                ref var graphicsArchetype = ref graphicsArchetypes.GetValueRefByIndex(idx);
-                graphicsArchetype.Dispose();
-            }
+                shaderId = OBJECT_TO_WORLD_ID,
+                size = SIZE_OF_MATRIX3X4
+            };
 
-            propertiesStashes.Dispose(default);
-        }
+            var worldToObjectOverride = new MaterialPropertyOverride()
+            {
+                shaderId = WORLD_TO_OBJECT_ID,
+                size = SIZE_OF_MATRIX3X4
+            };
 
-        public int GetArchetypePropertiesCount() => totalPropertiesCount;
+            brg.AddOverridenProperty(objectToWorldOverride, objectToWorldIndex);
+            brg.AddOverridenProperty(worldToObjectOverride, worldToObjectIndex);
 
-        public NativeArray<UnmanagedStash> GetArchetypesPropertiesStashes() => propertiesStashes;
+            newArchetypeIncludeExcludeBuffer = new int[basePropertiesArrayLength];
+            propertiesStashes = new ResizableArray<UnmanagedStash>(totalPropertiesArrayLength);
 
-        public LongHashMap<GraphicsArchetype> GetGraphicsArchetypesMap() => graphicsArchetypes;
+            archetypesHandle = new GraphicsArchetypesHandle()
+            {
+                propertiesTypeIdCache = propertiesTypeIdCache,
+                propertiesStashes = propertiesStashes,
+                graphicsArchetypes = graphicsArchetypes,
+                usedGraphicsArchetypesIndices = usedGraphicsArchetypesIndices,
+                propertiesCount = propertiesTypeIdCache.length + 2
+            };
 
-        public IntHashMap<ArchetypeProperty> GetArchetypesPropertiesMap() => propertiesTypeIdCache;
-
-        public FastList<int> GetUsedArchetypesIndices() => usedGraphicsArchetypesIndices;
-
-        public ref GraphicsArchetype GetGraphicsArchetypeByIndex(in int index) => ref graphicsArchetypes.GetValueRefByIndex(index);
-
-        public ref ArchetypeProperty GetArchetypePropertyByIndex(in int index) => ref propertiesTypeIdCache.GetValueRefByIndex(index);
-
-        public void Update()
-        {
-            AddNewGraphicsArchetypes();
-            UpdateGraphicsArchetypesFilters();
-            GatherNewGraphicsArchetypes();
-            UpdateArchetypePropertiesStashes();
+            archetypes = new GraphicsArchetypesContext(archetypesHandle);
+            graphicsArchetypesStash = World.GetStash<SharedGraphicsArchetypesContext>();
+            graphicsArchetypesStash.Set(World.CreateEntity(), new SharedGraphicsArchetypesContext() { graphicsArchetypes = archetypes });
         }
 
         private void UpdateGraphicsArchetypesFilters()
@@ -191,7 +215,7 @@ namespace Scellecs.Morpeh.Graphics
                     {
                         if (propertiesTypeIdCache.TryGetValue(typeId, out var property, out var index))
                         {
-                            newArchetypeIncludeMappingBuffer[index] = 1;
+                            newArchetypeIncludeExcludeBuffer[index] = 1;
                             graphicsArchetypeHash ^= property.componentTypeHash;
                             newComponentsCounter++;
                         }
@@ -199,10 +223,10 @@ namespace Scellecs.Morpeh.Graphics
 
                     if (newGraphicsArchetypes.Has(graphicsArchetypeHash) == false)
                     {
-                        CreateGraphicsArchetype(graphicsArchetypeHash, newComponentsCounter, newArchetypeIncludeMappingBuffer);
+                        CreateGraphicsArchetype(graphicsArchetypeHash, newComponentsCounter, newArchetypeIncludeExcludeBuffer);
                     }
 
-                    Array.Clear(newArchetypeIncludeMappingBuffer, 0, newArchetypeIncludeMappingBuffer.Length);
+                    Array.Clear(newArchetypeIncludeExcludeBuffer, 0, newArchetypeIncludeExcludeBuffer.Length);
                 }
             }
         }
@@ -216,7 +240,7 @@ namespace Scellecs.Morpeh.Graphics
             properties[1] = worldToObjectIndex;
 
             var counter = 2;
-            var filterBuilder = world.Filter.With<LocalToWorld>().With<MaterialMeshInfo>();
+            var filterBuilder = World.Filter.With<LocalToWorld>().With<MaterialMeshInfo>();
 
             foreach (var idx in propertiesTypeIdCache)
             {
@@ -290,11 +314,11 @@ namespace Scellecs.Morpeh.Graphics
             foreach (var idx in propertiesTypeIdCache)
             {
                 ref var property = ref propertiesTypeIdCache.GetValueRefByIndex(idx);
-                propertiesStashes[idx] = world.CreateUnmanagedStashDangerous(property.componentTypeId);
+                propertiesStashes[idx] = World.CreateUnmanagedStashDangerous(property.componentTypeId);
             }
 
             var objectToWorldTypeId = propertiesTypeIdCache.data[objectToWorldIndex].componentTypeId;
-            propertiesStashes[objectToWorldIndex] = world.CreateUnmanagedStashDangerous(objectToWorldTypeId);
+            propertiesStashes[objectToWorldIndex] = World.CreateUnmanagedStashDangerous(objectToWorldTypeId);
         }
     }
 }
