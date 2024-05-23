@@ -25,11 +25,6 @@ namespace Scellecs.Morpeh.Graphics
         private BatchRendererGroupContext brg;
         private GraphicsArchetypesContext graphicsArchetypes;
 
-        private NativeList<ValueBlitDescriptor> valueBlits;
-
-        private IntHashSet existingBatchIndices;
-        private BitMap unreferencedBatchesIndices;
-
         private ThreadLocalAllocator threadAllocator;
 
         public void OnAwake()
@@ -37,9 +32,6 @@ namespace Scellecs.Morpeh.Graphics
             brg = EcsHelpers.GetBatchRendererGroupContext(World);
             brg.SetCullingCallback(OnPerformCulling);
             graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
-
-
-            //InitializeSharedBatchRenderer();
         }
 
         public void OnUpdate(float deltaTime)
@@ -53,109 +45,45 @@ namespace Scellecs.Morpeh.Graphics
 
         }
 
-        //private void InitializeGraphicsBuffer()
-        //{
-        //    brgBuffer = new SparseBuffer(new SparseBufferArgs()
-        //    {
-        //        target = GraphicsBuffer.Target.Raw,
-        //        flags = GraphicsBuffer.UsageFlags.None,
-        //        initialSize = GPU_BUFFER_INITIAL_SIZE,
-        //        maxSize = GPU_BUFFER_MAX_SIZE,
-        //        stride = SIZE_OF_UINT,
-        //        uploaderChunkSize = GPU_UPLOADER_CHUNK_SIZE
-        //    });
-
-        //    brgBuffer.Allocate(SIZE_OF_MATRIX4X4, 16, out var zeroAllocationHeader);
-
-        //    valueBlits = new NativeList<ValueBlitDescriptor>(Allocator.Persistent)
-        //    {
-        //        new ValueBlitDescriptor()
-        //        {
-        //            value = float4x4.zero,
-        //            destinationOffset = (uint)zeroAllocationHeader.begin,
-        //            valueSizeBytes = SIZE_OF_MATRIX4X4,
-        //            count = 1
-        //        }
-        //    };
-        //}
-
-        private void ScheduleUpdateBatchesRenderBounds()
-        {
-            //var archetypesIndices = graphicsArchetypes.GetUsedArchetypesIndices();
-            //var archetypes = graphicsArchetypes.GetGraphicsArchetypesMap();
-
-            //fixed (int* archetypesIndicesPtr = &archetypesIndices.data[0])
-            //fixed (GraphicsArchetype* archetypesPtr = &archetypes.data[0])
-            //{ 
-                
-            //}
-        }
-
         private void ExecuteGpuUploads()
         {
-            //var inputDeps = World.JobHandle;
-            //var allocator = World.GetUpdateAllocator();
+            var inputDeps = World.JobHandle;
+            var allocator = World.GetUpdateAllocator();
 
-            //int maximumGpuUploads = existingBatchIndices.length * graphicsArchetypes.GetArchetypePropertiesCount();
-            //var gpuUploadOperations = allocator.AllocateNativeArray<GpuUploadOperation>(maximumGpuUploads, NativeArrayOptions.UninitializedMemory);
-            //var numGpuUploads = new NativeReference<int>(Allocator.TempJob);
+            var totalBatchesCount = brg.GetExistingBatchesIndices().Count;
+            var totalOverridesCount = graphicsArchetypes.GetTotalArchetypePropertiesCount();
 
-            //var archetypesIndices = graphicsArchetypes.GetUsedArchetypesIndices();
-            //var archetypes = graphicsArchetypes.GetGraphicsArchetypesMap();
-            //var stashes = graphicsArchetypes.GetArchetypesPropertiesStashes();
-            //var properties = graphicsArchetypes.GetArchetypesPropertiesMap();
+            int maximumGpuUploads = totalBatchesCount * totalOverridesCount;
+            var gpuUploadOperations = allocator.AllocateNativeArray<GpuUploadOperation>(maximumGpuUploads, NativeArrayOptions.UninitializedMemory);
+            var numGpuUploads = new NativeReference<int>(Allocator.TempJob);
 
-            //fixed (int* archetypesIndicesPtr = &archetypesIndices.data[0])
-            //fixed (GraphicsArchetype* archetypesPtr = &archetypes.data[0])
-            //fixed (ArchetypeProperty* propertiesPtr = &properties.data[0])
-            //{
-            //    new SetupGpuUploadOperationsJob()
-            //    {
-            //        archetypesIndices = archetypesIndicesPtr,
-            //        archetypes = archetypesPtr,
-            //        properties = propertiesPtr,
-            //        propertiesStashes = (UnmanagedStash*)stashes.GetUnsafePtr(),
-            //        batchInfos = batchInfos.GetUnsafePtr(),
-            //        numGpuUploadOperations = numGpuUploads.GetUnsafePtr(),
-            //        gpuUploadOperations = gpuUploadOperations
-            //    }
-            //    .ScheduleParallel(archetypesIndices.length, 16, inputDeps).Complete();
-            //}
+            var nativeArchetypes = graphicsArchetypes.AsNative();
 
-            //var beginRequirements = SparseBufferUtility.ComputeUploadSizeRequirements(numGpuUploads.Value, gpuUploadOperations, valueBlits.AsArray());
-            //var threadedBufferUploader = brgBuffer.Begin(beginRequirements, out bool bufferResized);
+            new SetupGpuUploadOperationsJob()
+            {
+                archetypesIndices = nativeArchetypes.archetypesIndices,
+                archetypes = nativeArchetypes.archetypes,
+                properties = nativeArchetypes.properties,
+                propertiesStashes = nativeArchetypes.propertiesStashes,
+                batchInfos = brg.GetBatchInfosUnsafePtr(),
+                numGpuUploadOperations = numGpuUploads.GetUnsafePtr(),
+                gpuUploadOperations = gpuUploadOperations
+            }
+            .ScheduleParallel(nativeArchetypes.usedArchetypesCount, 16, inputDeps).Complete();
 
-            //var uploadGpuOperationsHandle = new ExecuteGpuUploadOperationsJob()
-            //{
-            //    gpuUploadOperations = gpuUploadOperations,
-            //    threadedSparseUploader = threadedBufferUploader
-            //}
-            //.ScheduleParallel(numGpuUploads.Value, 16, default);
+            var beginRequirements = SparseBufferUtility.ComputeUploadSizeRequirements(numGpuUploads.Value, gpuUploadOperations);
+            var threadedBufferUploader = brg.BeginUpload(beginRequirements);
 
-            //var uploadValueBlitsHandle = new JobHandle();
+            var uploadGpuOperationsHandle = new ExecuteGpuUploadOperationsJob()
+            {
+                gpuUploadOperations = gpuUploadOperations,
+                threadedSparseUploader = threadedBufferUploader
+            }
+            .ScheduleParallel(numGpuUploads.Value, 16, default);
 
-            //if (valueBlits.Length > 0)
-            //{
-            //    uploadValueBlitsHandle = new UploadValueBlitsJob()
-            //    {
-            //        valueBlits = valueBlits,
-            //        threadedSparseUploader = threadedBufferUploader
-            //    }
-            //    .Schedule(valueBlits.Length, default);
-            //}
-
-            //if (bufferResized)
-            //{
-            //    foreach (var batchID in existingBatchIndices)
-            //    {
-            //        brg.SetBatchBuffer(IntAsBatchID(batchID), brgBuffer.Handle);
-            //    }
-            //}
-
-            //numGpuUploads.Dispose(default);
-            //JobHandle.CombineDependencies(uploadGpuOperationsHandle, uploadValueBlitsHandle).Complete();
-            //valueBlits.Clear();
-            //brgBuffer.EndAndCommit();
+            numGpuUploads.Dispose(default);
+            uploadGpuOperationsHandle.Complete();
+            brg.EndUploadAndCommit();
         }
 
         private JobHandle OnPerformCulling(
@@ -329,7 +257,6 @@ namespace Scellecs.Morpeh.Graphics
     {
         [ReadOnly]
         public NativeArray<GpuUploadOperation> gpuUploadOperations;
-
         public ThreadedSparseUploader threadedSparseUploader;
 
         public void Execute(int index)
@@ -349,21 +276,6 @@ namespace Scellecs.Morpeh.Graphics
                 default:
                     break;
             }
-        }
-    }
-
-    [BurstCompile]
-    internal unsafe struct UploadValueBlitsJob : IJobFor
-    {
-        [ReadOnly]
-        public NativeList<ValueBlitDescriptor> valueBlits;
-
-        public ThreadedSparseUploader threadedSparseUploader;
-
-        public void Execute(int index)
-        {
-            var blit = valueBlits[index];
-            threadedSparseUploader.AddUpload(&blit.value, (int)blit.valueSizeBytes, (int)blit.destinationOffset, (int)blit.count);
         }
     }
 }

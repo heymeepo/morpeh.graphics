@@ -2,8 +2,10 @@
 using Scellecs.Morpeh.Graphics.Collections;
 using Scellecs.Morpeh.Graphics.Culling;
 using System;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
@@ -13,8 +15,11 @@ namespace Scellecs.Morpeh.Graphics
     internal sealed class BatchRendererGroupContext : IDisposable
     {
         private BatchRendererGroup brg;
-        private SparseBuffer brgBuffer;
         private ThreadedBatchContext threadedBatchContext;
+
+        private SparseBuffer brgBuffer;
+        private HeapBlock bufferHeader;
+        private ValueBlitDescriptor uploadHeaderBlitDescriptor;
 
         private ResizableArray<MaterialPropertyOverride> overrides;
         private ResizableArray<BatchInfo> batchInfos;
@@ -33,10 +38,14 @@ namespace Scellecs.Morpeh.Graphics
             overrides = new ResizableArray<MaterialPropertyOverride>();
             batchInfos = new ResizableArray<BatchInfo>();
             batchAABBs = new ResizableArray<BatchAABB>();
-            existingBatchesIndices = new IntHashSet();
             threadedBatchContext = brg.GetThreadedBatchContext();
+            existingBatchesIndices = new IntHashSet();
             this.bytesPerBatch = bytesPerBatch;
             this.batchAllocationAlignment = batchAllocationAlignment;
+
+            brgBuffer.Allocate(SIZE_OF_MATRIX4X4, 16, out var zeroAllocationHeader);
+            bufferHeader = zeroAllocationHeader;
+            uploadHeaderBlitDescriptor = default;
         }
 
         public void SetGlobalBounds(Bounds bounds) => brg.SetGlobalBounds(bounds);
@@ -45,7 +54,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void SetCullingCallback(BatchRendererGroup.OnPerformCulling callback) => cullingCallback = callback;
 
-        public void AddOverridenProperty(MaterialPropertyOverride property, int index) => overrides.AddAt(index, property);
+        public void AddPropertyOverride(MaterialPropertyOverride property, int index) => overrides.AddAt(index, property);
 
         public bool AddBatch(NativeArray<int> overridesIndices, NativeArray<int> sourceMetadataStream, out BatchID batchID)
         {
@@ -102,6 +111,52 @@ namespace Scellecs.Morpeh.Graphics
 
         public unsafe BatchAABB* GetBatchAABBsUnsafePtr() => batchAABBs.GetUnsafePtr();
 
+        public unsafe ThreadedSparseUploader BeginUpload(SparseBufferUploadRequirements uploadRequirements)
+        {
+            bool uploadHeader = false;
+
+            if (uploadHeaderBlitDescriptor.BytesRequiredInUploadBuffer == 0)
+            {
+                uploadHeaderBlitDescriptor = new ValueBlitDescriptor()
+                {
+                    value = float4x4.zero,
+                    destinationOffset = (uint)bufferHeader.begin,
+                    valueSizeBytes = SIZE_OF_MATRIX4X4,
+                    count = 1
+                };
+
+                var numBytes = uploadHeaderBlitDescriptor.BytesRequiredInUploadBuffer;
+                uploadRequirements.numOperations++;
+                uploadRequirements.totalUploadBytes += numBytes;
+                uploadRequirements.biggestUploadBytes = math.max(uploadRequirements.biggestUploadBytes, numBytes);
+                uploadHeader = true;
+            }
+
+            var threadedSparseUploader = brgBuffer.Begin(uploadRequirements, out bool bufferResized);
+
+            if (uploadHeader)
+            {
+                new UploadBufferHeaderJob()
+                {
+                    uploadDescriptor = uploadHeaderBlitDescriptor,
+                    threadedSparseUploader = threadedSparseUploader
+                }
+                .Schedule().Complete();
+            }
+
+            if (bufferResized)
+            {
+                foreach (var batchID in existingBatchesIndices)
+                {
+                    brg.SetBatchBuffer(IntAsBatchID(batchID), brgBuffer.Handle);
+                }
+            }
+
+            return threadedSparseUploader;
+        }
+
+        public void EndUploadAndCommit() => brgBuffer.EndAndCommit();
+
         public void Dispose()
         {
             brg.Dispose();
@@ -120,6 +175,20 @@ namespace Scellecs.Morpeh.Graphics
             IntPtr userContext)
         {
             return cullingCallback != null ? cullingCallback.Invoke(rendererGroup, cullingContext, cullingOutput, userContext) : default;
+        }
+    }
+
+    [BurstCompile]
+    internal unsafe struct UploadBufferHeaderJob : IJob
+    {
+        [ReadOnly]
+        public ValueBlitDescriptor uploadDescriptor;
+        public ThreadedSparseUploader threadedSparseUploader;
+
+        public void Execute()
+        {
+            var blit = uploadDescriptor;
+            threadedSparseUploader.AddUpload(&blit.value, (int)blit.valueSizeBytes, (int)blit.destinationOffset, (int)blit.count);
         }
     }
 }

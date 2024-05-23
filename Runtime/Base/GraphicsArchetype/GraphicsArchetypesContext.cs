@@ -16,6 +16,12 @@ namespace Scellecs.Morpeh.Graphics
 
         public GraphicsArchetypesContext(GraphicsArchetypesHandle handle) => this.handle = handle;
 
+        public int GetTotalArchetypePropertiesCount()
+        {
+            ThrowExceptionIfIsNotValid();
+            return handle.propertiesCount;
+        }
+
         public ref GraphicsArchetype GetGraphicsArchetypeByIndex(in int index)
         {
             ThrowExceptionIfIsNotValid();
@@ -48,6 +54,7 @@ namespace Scellecs.Morpeh.Graphics
                 nativeArchetypes.archetypes = archetypesPtr;
                 nativeArchetypes.properties = propertiesPtr;
                 nativeArchetypes.propertiesStashes = handle.propertiesStashes.GetUnsafePtr();
+                nativeArchetypes.usedArchetypesCount = handle.usedGraphicsArchetypesIndices.length;
             }
 
             return nativeArchetypes;

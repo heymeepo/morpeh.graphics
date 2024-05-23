@@ -1,6 +1,9 @@
 ﻿using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine.Rendering;
 using UnityEngine;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Scellecs.Morpeh.Graphics.Utilities
 {

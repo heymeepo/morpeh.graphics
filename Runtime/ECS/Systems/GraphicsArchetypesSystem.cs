@@ -108,7 +108,7 @@ namespace Scellecs.Morpeh.Graphics
                 };
 
                 propertiesTypeIdCache.Add(typeId, property, out int propertyIndex);
-                brg.AddOverridenProperty(propertyOverride, propertyIndex);
+                brg.AddPropertyOverride(propertyOverride, propertyIndex);
             }
 
 
@@ -146,8 +146,8 @@ namespace Scellecs.Morpeh.Graphics
                 size = SIZE_OF_MATRIX3X4
             };
 
-            brg.AddOverridenProperty(objectToWorldOverride, objectToWorldIndex);
-            brg.AddOverridenProperty(worldToObjectOverride, worldToObjectIndex);
+            brg.AddPropertyOverride(objectToWorldOverride, objectToWorldIndex);
+            brg.AddPropertyOverride(worldToObjectOverride, worldToObjectIndex);
 
             newArchetypeIncludeExcludeBuffer = new int[basePropertiesArrayLength];
             propertiesStashes = new ResizableArray<UnmanagedStash>(totalPropertiesArrayLength);

@@ -16,5 +16,7 @@ namespace Scellecs.Morpeh.Graphics
 
         [NativeDisableUnsafePtrRestriction]
         public UnmanagedStash* propertiesStashes;
+
+        public int usedArchetypesCount;
     }
 }

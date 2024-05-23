@@ -6,9 +6,15 @@ namespace Scellecs.Morpeh.Graphics.Collections
 {
     internal struct ReadOnlyIntHashSet
     {
+        public int Count { get; private set; }
+
         private readonly IntHashSet set;
 
-        public ReadOnlyIntHashSet(IntHashSet set) => this.set = set;
+        public ReadOnlyIntHashSet(IntHashSet set)
+        {
+            this.set = set;
+            Count = set.length;
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Enumerator GetEnumerator() => new Enumerator(set, 0, default);

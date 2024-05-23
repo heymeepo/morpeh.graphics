@@ -13,9 +13,8 @@ namespace Scellecs.Morpeh.Graphics
         }
 
         [BurstCompile]
-        public static SparseBufferUploadRequirements ComputeUploadSizeRequirements(int numGpuUploadOperations, NativeArray<GpuUploadOperation> gpuUploadOperations, NativeArray<ValueBlitDescriptor> valueBlits)
+        public static SparseBufferUploadRequirements ComputeUploadSizeRequirements(int numGpuUploadOperations, NativeArray<GpuUploadOperation> gpuUploadOperations)
         {
-            var numOperations = numGpuUploadOperations + valueBlits.Length;
             var totalUploadBytes = 0;
             var biggestUploadBytes = 0;
 
@@ -26,16 +25,16 @@ namespace Scellecs.Morpeh.Graphics
                 biggestUploadBytes = math.max(biggestUploadBytes, numBytes);
             }
 
-            for (int i = 0; i < valueBlits.Length; ++i)
-            {
-                var numBytes = valueBlits[i].BytesRequiredInUploadBuffer;
-                totalUploadBytes += numBytes;
-                biggestUploadBytes = math.max(biggestUploadBytes, numBytes);
-            }
+            //for (int i = 0; i < valueBlits.Length; ++i)
+            //{
+            //    var numBytes = valueBlits[i].BytesRequiredInUploadBuffer;
+            //    totalUploadBytes += numBytes;
+            //    biggestUploadBytes = math.max(biggestUploadBytes, numBytes);
+            //}
 
             return new SparseBufferUploadRequirements()
             {
-                numOperations = numOperations,
+                numOperations = numGpuUploadOperations,
                 totalUploadBytes = totalUploadBytes,
                 biggestUploadBytes = biggestUploadBytes
             };

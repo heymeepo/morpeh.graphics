@@ -1,4 +1,5 @@
-﻿using Scellecs.Morpeh.Graphics.Collections;
+﻿using Scellecs.Morpeh.Collections;
+using Scellecs.Morpeh.Graphics.Collections;
 using Scellecs.Morpeh.Graphics.Utilities;
 using Unity.Collections;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
@@ -12,14 +13,15 @@ namespace Scellecs.Morpeh.Graphics
         private BatchRendererGroupContext brg;
         private GraphicsArchetypesContext graphicsArchetypes;
         private ResizableArray<int> batchIndexToArchetypeIndex;
+
         private BitMap unreferencedBatchesIndices;
 
         public void OnAwake()
         {
             brg = EcsHelpers.GetBatchRendererGroupContext(World);
             graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
-            unreferencedBatchesIndices = new BitMap();
             batchIndexToArchetypeIndex = new ResizableArray<int>();
+            unreferencedBatchesIndices = new BitMap();
         }
 
         public void OnUpdate(float deltaTime) => UpdateBatches();
