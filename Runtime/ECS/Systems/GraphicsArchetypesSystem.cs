@@ -98,17 +98,11 @@ namespace Scellecs.Morpeh.Graphics
                 {
                     componentTypeId = typeId,
                     componentTypeHash = typeHash,
-                    size = size
-                };
-
-                var propertyOverride = new MaterialPropertyOverride()
-                {
                     shaderId = shaderId,
                     size = size
                 };
 
                 propertiesTypeIdCache.Add(typeId, property, out int propertyIndex);
-                brg.AddPropertyOverride(propertyOverride, propertyIndex);
             }
 
 
@@ -126,28 +120,15 @@ namespace Scellecs.Morpeh.Graphics
             {
                 componentTypeId = MorpehInternalTools.GetTypeId(typeof(LocalToWorld)),
                 componentTypeHash = MorpehInternalTools.GetTypeHash(typeof(LocalToWorld)),
+                shaderId = OBJECT_TO_WORLD_ID,
                 size = SIZE_OF_MATRIX3X4
             };
 
             propertiesTypeIdCache.data[worldToObjectIndex] = new ArchetypeProperty()
             {
-                size = SIZE_OF_MATRIX3X4
-            };
-
-            var objectToWorldOverride = new MaterialPropertyOverride()
-            {
-                shaderId = OBJECT_TO_WORLD_ID,
-                size = SIZE_OF_MATRIX3X4
-            };
-
-            var worldToObjectOverride = new MaterialPropertyOverride()
-            {
                 shaderId = WORLD_TO_OBJECT_ID,
                 size = SIZE_OF_MATRIX3X4
             };
-
-            brg.AddPropertyOverride(objectToWorldOverride, objectToWorldIndex);
-            brg.AddPropertyOverride(worldToObjectOverride, worldToObjectIndex);
 
             newArchetypeIncludeExcludeBuffer = new int[basePropertiesArrayLength];
             propertiesStashes = new ResizableArray<UnmanagedStash>(totalPropertiesArrayLength);

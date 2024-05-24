@@ -1,6 +1,7 @@
 ﻿using Scellecs.Morpeh.Native;
 using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace Scellecs.Morpeh.Graphics
@@ -10,16 +11,22 @@ namespace Scellecs.Morpeh.Graphics
         /// <summary>
         /// List of overriden shader properties indices that correspond to this GraphicsArchetype
         /// </summary>
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
         public NativeArray<int> propertiesIndices;
 
         /// <summary>
         /// List of batches indices that correspond to this GraphicsArchetype, including potentially outdated ones
         /// </summary>
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
         public NativeList<int> batchesIndices;
 
         /// <summary>
         /// The source memory layout of ArchetypeProperties inside the GPU buffer
         /// </summary>
+        [NativeDisableParallelForRestriction]
+        [NativeDisableContainerSafetyRestriction]
         public NativeArray<int> sourceMetadataStream;
 
         /// <summary>
@@ -30,11 +37,13 @@ namespace Scellecs.Morpeh.Graphics
         /// <summary>
         /// The maximum number of entities per batch. Based on the amount of memory allocated on the GPU for each entity of this archetype.
         /// </summary>
+        [ReadOnly]
         public int maxEntitiesPerBatch;
 
         /// <summary>
         /// The hash of this GraphicsArchetype. Based on the ArchetypeProperties hashes.
         /// </summary>
+        [ReadOnly]
         public long hash;
 
         public int ExpectedBatchesCount() => (int)math.ceil((float)entities.length / maxEntitiesPerBatch);

@@ -24,16 +24,4 @@ namespace Scellecs.Morpeh.Graphics.Culling
                 "ThreadLocalAABB should have a size equal to the CPU cache line size");
         }
     }
-
-    [BurstCompile]
-    internal unsafe struct ZeroThreadLocalAABBJob : IJobParallelFor
-    {
-        public NativeArray<ThreadLocalAABB> ThreadLocalAABBs;
-
-        public void Execute(int index)
-        {
-            var threadLocalAABB = ((ThreadLocalAABB*)ThreadLocalAABBs.GetUnsafePtr()) + index;
-            threadLocalAABB->AABB = MinMaxAABB.Empty;
-        }
-    }
 }

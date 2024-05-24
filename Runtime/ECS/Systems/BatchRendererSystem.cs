@@ -12,7 +12,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
 using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
@@ -25,6 +24,7 @@ namespace Scellecs.Morpeh.Graphics
         private BatchRendererGroupContext brg;
         private GraphicsArchetypesContext graphicsArchetypes;
 
+        private ValueBlitDescriptor bufferHeaderBlitDescriptor;
         private ThreadLocalAllocator threadAllocator;
 
         public void OnAwake()
@@ -32,6 +32,7 @@ namespace Scellecs.Morpeh.Graphics
             brg = EcsHelpers.GetBatchRendererGroupContext(World);
             brg.SetCullingCallback(OnPerformCulling);
             graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
+            bufferHeaderBlitDescriptor = default;
         }
 
         public void OnUpdate(float deltaTime)
@@ -47,10 +48,10 @@ namespace Scellecs.Morpeh.Graphics
 
         private void ExecuteGpuUploads()
         {
-            var inputDeps = World.JobHandle;
             var allocator = World.GetUpdateAllocator();
 
-            var totalBatchesCount = brg.GetExistingBatchesIndices().Count;
+            var existingBatches = brg.GetExistingBatchesIndices();
+            var totalBatchesCount = existingBatches.count;
             var totalOverridesCount = graphicsArchetypes.GetTotalArchetypePropertiesCount();
 
             int maximumGpuUploads = totalBatchesCount * totalOverridesCount;
@@ -61,18 +62,37 @@ namespace Scellecs.Morpeh.Graphics
 
             new SetupGpuUploadOperationsJob()
             {
-                archetypesIndices = nativeArchetypes.archetypesIndices,
+                batchesIndices = existingBatches.GetUnsafeDataPtr(),
                 archetypes = nativeArchetypes.archetypes,
                 properties = nativeArchetypes.properties,
                 propertiesStashes = nativeArchetypes.propertiesStashes,
-                batchInfos = brg.GetBatchInfosUnsafePtr(),
+                batchesInfos = brg.GetBatchInfosUnsafePtr(),
                 numGpuUploadOperations = numGpuUploads.GetUnsafePtr(),
                 gpuUploadOperations = gpuUploadOperations
             }
-            .ScheduleParallel(nativeArchetypes.usedArchetypesCount, 16, inputDeps).Complete();
+            .ScheduleParallel(totalBatchesCount, 16, default).Complete();
 
-            var beginRequirements = SparseBufferUtility.ComputeUploadSizeRequirements(numGpuUploads.Value, gpuUploadOperations);
-            var threadedBufferUploader = brg.BeginUpload(beginRequirements);
+            var uploadHeader = bufferHeaderBlitDescriptor.BytesRequiredInUploadBuffer == 0;
+            var uploadRequirements = SparseBufferUtility.ComputeUploadSizeRequirements(numGpuUploads.Value, gpuUploadOperations);
+
+            if (uploadHeader)
+            {
+                bufferHeaderBlitDescriptor = new ValueBlitDescriptor()
+                {
+                    value = float4x4.zero,
+                    destinationOffset = 0u,
+                    valueSizeBytes = SIZE_OF_MATRIX4X4,
+                    count = 1
+                };
+
+                var numBytes = bufferHeaderBlitDescriptor.BytesRequiredInUploadBuffer;
+                uploadRequirements.numOperations++;
+                uploadRequirements.totalUploadBytes += numBytes;
+                uploadRequirements.biggestUploadBytes = math.max(uploadRequirements.biggestUploadBytes, numBytes);
+            }
+
+            var brgBuffer = brg.GetBuffer();
+            var threadedBufferUploader = brgBuffer.Begin(uploadRequirements, out bool bufferResized);
 
             var uploadGpuOperationsHandle = new ExecuteGpuUploadOperationsJob()
             {
@@ -81,9 +101,21 @@ namespace Scellecs.Morpeh.Graphics
             }
             .ScheduleParallel(numGpuUploads.Value, 16, default);
 
+            var uploadHeaderHandle = uploadHeader ? new UploadBufferHeaderJob()
+            {
+                uploadDescriptor = bufferHeaderBlitDescriptor,
+                threadedSparseUploader = threadedBufferUploader
+            }
+            .Schedule() : default;
+
+            if (bufferResized)
+            {
+                brg.UpdateBatchBufferHandles();
+            }
+
             numGpuUploads.Dispose(default);
-            uploadGpuOperationsHandle.Complete();
-            brg.EndUploadAndCommit();
+            JobHandle.CombineDependencies(uploadHeaderHandle, uploadGpuOperationsHandle).Complete();
+            brgBuffer.EndAndCommit();
         }
 
         private JobHandle OnPerformCulling(
@@ -99,70 +131,13 @@ namespace Scellecs.Morpeh.Graphics
     }
 
     [BurstCompile]
-    internal unsafe struct UpdateBatchesRenderBoundsJob : IJobFor
-    {
-        [NativeSetThreadIndex] 
-        public int threadIndex;
-
-        [NativeDisableUnsafePtrRestriction]
-        public ThreadLocalAABB* localAABBs;
-
-        [NativeDisableUnsafePtrRestriction]
-        public int* archetypesIndices;
-
-        [NativeDisableUnsafePtrRestriction]
-        public GraphicsArchetype* archetypes;
-
-        [NativeDisableUnsafePtrRestriction]
-        public BatchAABB* batchAABBs;
-
-        public NativeStash<LocalToWorld> localToWorldStash;
-
-        public NativeStash<RenderBounds> renderBoundsStash;
-
-        public NativeStash<WorldRenderBounds> worldRenderBoundsStash;
-
-        public void Execute(int index)
-        {
-            var archetypeIndex = archetypesIndices[index];
-            ref var archetype = ref archetypes[archetypeIndex];
-
-            var entitiesCount = archetype.entities.length;
-            var entitiesPerBatch = archetype.maxEntitiesPerBatch;
-            var filter = archetype.entities;
-
-            for (int i = 0; i < archetype.batchesIndices.Length; i++)
-            {
-                var srcFilterOffset = entitiesPerBatch * i;
-                var srcCount = math.min(entitiesCount - srcFilterOffset, entitiesPerBatch);
-                var combined = MinMaxAABB.Empty;
-
-                for (int j = 0; j < srcCount; j++)
-                {
-                    var entityId = filter[srcFilterOffset + j];
-
-                    ref var localBounds = ref renderBoundsStash.Get(entityId);
-                    ref var worldBounds = ref worldRenderBoundsStash.Get(entityId);
-                    ref var localToWorld = ref localToWorldStash.Get(entityId);
-
-                    var transformed = AABB.Transform(localToWorld.value, localBounds.value);
-                    worldBounds.value = transformed;
-                    combined.Encapsulate(transformed);
-                }
-
-                batchAABBs[archetype.batchesIndices[i]].value = combined;
-                var threadLocalAABB = localAABBs + threadIndex;
-                ref var aabb = ref threadLocalAABB->AABB;
-                aabb.Encapsulate(combined);
-            }
-        }
-    }
-
-    [BurstCompile]
     internal unsafe struct SetupGpuUploadOperationsJob : IJobFor
     {
         [NativeDisableUnsafePtrRestriction]
-        public int* archetypesIndices;
+        public int* batchesIndices;
+
+        [NativeDisableUnsafePtrRestriction]
+        public BatchInfo* batchesInfos;
 
         [NativeDisableUnsafePtrRestriction]
         public GraphicsArchetype* archetypes;
@@ -174,9 +149,6 @@ namespace Scellecs.Morpeh.Graphics
         public UnmanagedStash* propertiesStashes;
 
         [NativeDisableUnsafePtrRestriction]
-        public BatchInfo* batchInfos;
-
-        [NativeDisableUnsafePtrRestriction]
         public int* numGpuUploadOperations;
 
         [NativeDisableParallelForRestriction]
@@ -184,56 +156,45 @@ namespace Scellecs.Morpeh.Graphics
 
         public void Execute(int index)
         {
-            var archetypeIndex = archetypesIndices[index];
-            ref var archetype = ref archetypes[archetypeIndex];
+            ref var batchInfo = ref batchesInfos[batchesIndices[index]];
+            ref var archetype = ref archetypes[batchInfo.archetypeIndex];
 
-            var entitiesCount = archetype.entities.length;
-            var entitiesPerBatch = archetype.maxEntitiesPerBatch;
+            var batchFilterOffset = archetype.maxEntitiesPerBatch * batchInfo.archetypeInternalIndex;
+            var batchEntitiesCount = math.min(archetype.entities.length - batchFilterOffset, archetype.maxEntitiesPerBatch);
+            var batchBegin = (int)batchInfo.batchGpuAllocation.begin;
 
-            for (int i = 0; i < archetype.batchesIndices.Length; i++)
+            var propertyIndex = archetype.propertiesIndices[0];
+            var dstOffset = batchBegin;
+            var dstOffsetInverse = batchBegin + archetype.sourceMetadataStream[1];
+            var sizeBytes = SIZE_OF_MATRIX3X4 * batchEntitiesCount;
+
+            var uploadSrc = new UploadDataSource()
             {
-                var batchInfo = batchInfos[archetype.batchesIndices[i]];
-                var batchBegin = (int)batchInfo.batchGpuAllocation.begin;
+                srcData = propertiesStashes + propertyIndex,
+                filter = archetype.entities,
+                filterOffset = batchFilterOffset,
+                count = batchEntitiesCount
+            };
 
-                var srcFilterOffset = entitiesPerBatch * i;
-                var srcCount = math.min(entitiesCount - srcFilterOffset, entitiesPerBatch);
+            AddUpload(ref uploadSrc, sizeBytes, dstOffset, dstOffsetInverse, GpuUploadOperation.UploadOperationKind.SOAMatrixUpload3x4);
 
+            for (int j = 2; j < archetype.propertiesIndices.Length; j++)
+            {
+                propertyIndex = archetype.propertiesIndices[j];
+                ref var property = ref properties[propertyIndex];
+
+                dstOffset = batchBegin + archetype.sourceMetadataStream[j];
+                sizeBytes = property.size * batchEntitiesCount;
+
+                uploadSrc = new UploadDataSource()
                 {
-                    var propertyIndex = archetype.propertiesIndices[0];
-                    var dstOffset = batchBegin;
-                    var dstOffsetInverse = batchBegin + archetype.sourceMetadataStream[1];
-                    var sizeBytes = SIZE_OF_MATRIX3X4 * srcCount;
+                    srcData = propertiesStashes + propertyIndex,
+                    filter = archetype.entities,
+                    filterOffset = batchFilterOffset,
+                    count = batchEntitiesCount
+                };
 
-                    var uploadSrc = new UploadDataSource()
-                    {
-                        srcData = propertiesStashes + propertyIndex,
-                        filter = archetype.entities,
-                        filterOffset = srcFilterOffset,
-                        count = srcCount
-                    };
-
-                    AddUpload(ref uploadSrc, sizeBytes, dstOffset, dstOffsetInverse, GpuUploadOperation.UploadOperationKind.SOAMatrixUpload3x4);
-                }
-
-                for (int j = 2; j < archetype.propertiesIndices.Length; j++)
-                {
-                    var propertyIndex = archetype.propertiesIndices[j];
-                    ref var property = ref properties[propertyIndex];
-
-                    var dstOffset = batchBegin + archetype.sourceMetadataStream[j];
-                    var sizeBytes = property.size * srcCount;
-                    var operationKind = GpuUploadOperation.UploadOperationKind.Memcpy;
-
-                    var uploadSrc = new UploadDataSource()
-                    {
-                        srcData = propertiesStashes + propertyIndex,
-                        filter = archetype.entities,
-                        filterOffset = srcFilterOffset,
-                        count = srcCount
-                    };
-
-                    AddUpload(ref uploadSrc, sizeBytes, dstOffset, -1, operationKind);
-                }
+                AddUpload(ref uploadSrc, sizeBytes, dstOffset, -1, GpuUploadOperation.UploadOperationKind.Memcpy);
             }
         }
 
@@ -267,7 +228,7 @@ namespace Scellecs.Morpeh.Graphics
             {
                 case GpuUploadOperation.UploadOperationKind.Memcpy:
                     threadedSparseUploader.AddUpload(ref operation.src, operation.dstOffset);
-                    break;                
+                    break;
 
                 case GpuUploadOperation.UploadOperationKind.SOAMatrixUpload3x4:
                     threadedSparseUploader.AddMatrixUpload(ref operation.src, operation.dstOffset, operation.dstOffsetInverse);
@@ -276,6 +237,20 @@ namespace Scellecs.Morpeh.Graphics
                 default:
                     break;
             }
+        }
+    }
+
+    [BurstCompile]
+    internal unsafe struct UploadBufferHeaderJob : IJob
+    {
+        [ReadOnly]
+        public ValueBlitDescriptor uploadDescriptor;
+        public ThreadedSparseUploader threadedSparseUploader;
+
+        public void Execute()
+        {
+            var blit = uploadDescriptor;
+            threadedSparseUploader.AddUpload(&blit.value, (int)blit.valueSizeBytes, (int)blit.destinationOffset, (int)blit.count);
         }
     }
 }

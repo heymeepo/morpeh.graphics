@@ -1,4 +1,5 @@
 ﻿using Scellecs.Morpeh.Graphics.Culling;
+using Scellecs.Morpeh.Graphics.Utilities;
 using Scellecs.Morpeh.Transforms;
 using UnityEngine.Rendering;
 
@@ -8,12 +9,12 @@ namespace Scellecs.Morpeh.Graphics
     {
         public World World { get; set; }
 
-        private Filter brgFilter;
+        private BatchRendererGroupContext brg;
+
         private Filter registerMaterialMeshFilter;
         private Filter unregisterMaterialMeshFilter;
         private Filter changeMaterialMeshFilter;
 
-        private Stash<SharedBatchRendererGroupContext> brgStash;
         private Stash<MaterialMeshInfo> materialMeshInfoStash;
         private Stash<MaterialMeshManaged> materialMeshManagedStash;
 
@@ -22,9 +23,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brgFilter = World.Filter
-                .With<SharedBatchRendererGroupContext>()
-                .Build();
+            brg = EcsHelpers.GetBatchRendererGroupContext(World);
 
             registerMaterialMeshFilter = World.Filter
                 .With<LocalToWorld>()
@@ -46,7 +45,6 @@ namespace Scellecs.Morpeh.Graphics
                 .With<MaterialMeshManaged>()
                 .Build();
 
-            brgStash = World.GetStash<SharedBatchRendererGroupContext>();
             materialMeshInfoStash = World.GetStash<MaterialMeshInfo>();
             materialMeshManagedStash = World.GetStash<MaterialMeshManaged>();
             renderBoundsStash = World.GetStash<RenderBounds>();
@@ -55,14 +53,12 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
-            var brg = brgStash.Get(brgFilter.First()).brg;
-
-            //RegisterNewEntitiesMaterialMeshInfo(brg);
-            //UnregisterDeletedEntitiesMaterialMeshInfo(brg);
-            //UpdateChangedMaterialMeshInfo(brg);
+            RegisterNewEntitiesMaterialMeshInfo();
+            UnregisterDeletedEntitiesMaterialMeshInfo();
+            UpdateChangedMaterialMeshInfo();
         }
 
-        private void RegisterNewEntitiesMaterialMeshInfo(BatchRendererGroup brg)
+        private void RegisterNewEntitiesMaterialMeshInfo()
         {
             foreach (var entity in registerMaterialMeshFilter)
             {
@@ -85,7 +81,7 @@ namespace Scellecs.Morpeh.Graphics
             }
         }
 
-        private void UnregisterDeletedEntitiesMaterialMeshInfo(BatchRendererGroup brg)
+        private void UnregisterDeletedEntitiesMaterialMeshInfo()
         {
             foreach (var entity in unregisterMaterialMeshFilter)
             {
@@ -98,7 +94,7 @@ namespace Scellecs.Morpeh.Graphics
             }
         }
 
-        private void UpdateChangedMaterialMeshInfo(BatchRendererGroup brg)
+        private void UpdateChangedMaterialMeshInfo()
         {
             foreach (var entity in changeMaterialMeshFilter)
             {

@@ -2,6 +2,7 @@
 using Scellecs.Morpeh.Graphics.Collections;
 using Scellecs.Morpeh.Graphics.Utilities;
 using Unity.Collections;
+using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
@@ -69,11 +70,11 @@ namespace Scellecs.Morpeh.Graphics
                 }
             }
 
-            ReleaseUnreferencedBatches(unreferencedBatchesIndices);
+            RemoveUnreferencedBatches(unreferencedBatchesIndices);
             AddBatches(batchCreateInfos);
         }
 
-        private void ReleaseUnreferencedBatches(BitMap batchesIndices)
+        private void RemoveUnreferencedBatches(BitMap batchesIndices)
         {
             foreach (var batchIndex in batchesIndices)
             {
@@ -81,12 +82,22 @@ namespace Scellecs.Morpeh.Graphics
             }
         }
 
-        private void RemoveBatch(int batchIndex)
+        private unsafe void RemoveBatch(int batchIndex)
         {
+            var brgBuffer = brg.GetBuffer();
+            var batchInfos = brg.GetBatchInfosUnsafePtr();
+            var batchInfo = batchInfos[batchIndex];
+
             var archetypeIndex = batchIndexToArchetypeIndex[batchIndex];
-            ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(archetypeIndex);
+            ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(batchInfo.archetypeIndex);
+
             archetype.batchesIndices.RemoveAt(archetype.batchesIndices.Length - 1);
             brg.RemoveBatch(IntAsBatchID(batchIndex));
+
+            if (batchInfo.batchGpuAllocation.Empty == false)
+            {
+                brgBuffer.Free(batchInfo.batchGpuAllocation);
+            }
         }
 
         private void AddBatches(NativeList<BatchCreateInfo> createInfos)
@@ -105,13 +116,38 @@ namespace Scellecs.Morpeh.Graphics
 
         private bool AddBatch(ref GraphicsArchetype archetype, int archetypeIndex)
         {
-            if (brg.AddBatch(archetype.propertiesIndices, archetype.sourceMetadataStream, out var batchID))
+            var brgBuffer = brg.GetBuffer();
+
+            if (brgBuffer.Allocate(BYTES_PER_BATCH_RAW_BUFFER, BATCH_ALLOCATION_ALIGNMENT, out var batchGpuAllocation) == false)
             {
-                var batchIndex = batchID.AsInt();
-                archetype.batchesIndices.Add(batchIndex);
-                batchIndexToArchetypeIndex.AddAt(batchIndex, archetypeIndex);
-                return true;
+                return false;
             }
+
+            var overrides = archetype.propertiesIndices;
+            var overrideStream = archetype.sourceMetadataStream;
+            var metadata = new NativeArray<MetadataValue>(archetype.propertiesIndices.Length, Allocator.Temp);
+            var batchBegin = (int)batchGpuAllocation.begin;
+
+            for (int i = 0; i < archetype.propertiesIndices.Length; i++)
+            {
+                int gpuAddress = batchBegin + overrideStream[i];
+                ref var property = ref graphicsArchetypes.GetArchetypePropertyByIndex(overrides[i]);
+                metadata[i] = CreateMetadataValue(property.shaderId, gpuAddress);
+            }
+
+            var batchID = brg.AddBatch(metadata);
+            var batchIndex = batchID.AsInt();
+            var batchInternalIndex = archetype.batchesIndices.Length;
+            var batchInfo = new BatchInfo()
+            {
+                batchGpuAllocation = batchGpuAllocation,
+                batchAABB = default,
+                archetypeIndex = archetypeIndex,
+                archetypeInternalIndex = batchInternalIndex
+            };
+
+            archetype.batchesIndices.Add(batchIndex);
+            brg.AddBatchInfo(batchInfo, batchIndex);
 
             return false;
         }
