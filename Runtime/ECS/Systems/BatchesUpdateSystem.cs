@@ -13,7 +13,6 @@ namespace Scellecs.Morpeh.Graphics
 
         private BatchRendererGroupContext brg;
         private GraphicsArchetypesContext graphicsArchetypes;
-        private ResizableArray<int> batchIndexToArchetypeIndex;
 
         private BitMap unreferencedBatchesIndices;
 
@@ -21,13 +20,12 @@ namespace Scellecs.Morpeh.Graphics
         {
             brg = EcsHelpers.GetBatchRendererGroupContext(World);
             graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
-            batchIndexToArchetypeIndex = new ResizableArray<int>();
             unreferencedBatchesIndices = new BitMap();
         }
 
         public void OnUpdate(float deltaTime) => UpdateBatches();
 
-        public void Dispose() => batchIndexToArchetypeIndex.Dispose();
+        public void Dispose() { }
 
         private void UpdateBatches()
         {
@@ -88,7 +86,7 @@ namespace Scellecs.Morpeh.Graphics
             var batchInfos = brg.GetBatchInfosUnsafePtr();
             var batchInfo = batchInfos[batchIndex];
 
-            var archetypeIndex = batchIndexToArchetypeIndex[batchIndex];
+            var archetypeIndex = batchInfo.archetypeIndex;
             ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(batchInfo.archetypeIndex);
 
             archetype.batchesIndices.RemoveAt(archetype.batchesIndices.Length - 1);
@@ -132,7 +130,12 @@ namespace Scellecs.Morpeh.Graphics
             {
                 int gpuAddress = batchBegin + overrideStream[i];
                 ref var property = ref graphicsArchetypes.GetArchetypePropertyByIndex(overrides[i]);
-                metadata[i] = CreateMetadataValue(property.shaderId, gpuAddress);
+
+                metadata[i] = new MetadataValue
+                {
+                    NameID = property.shaderId,
+                    Value = (uint)gpuAddress | MSB
+                };
             }
 
             var batchID = brg.AddBatch(metadata);

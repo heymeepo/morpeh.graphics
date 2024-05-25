@@ -1,9 +1,6 @@
 ﻿using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine.Rendering;
 using UnityEngine;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Mathematics;
 
 namespace Scellecs.Morpeh.Graphics.Utilities
 {
@@ -36,20 +33,10 @@ namespace Scellecs.Morpeh.Graphics.Utilities
         public static readonly int OBJECT_TO_WORLD_ID = Shader.PropertyToID("unity_ObjectToWorld");
         public static readonly int WORLD_TO_OBJECT_ID = Shader.PropertyToID("unity_WorldToObject");
 
-
         public static BatchID IntAsBatchID(int id) => new BatchID() { value = (uint)id };
 
         public static int AsInt(this BatchID batchId) => (int)batchId.value;
 
         public static int Align16Bytes(int size) => ((size + 15) >> 4) << 4;
-
-        public static MetadataValue CreateMetadataValue(int nameID, int gpuAddress)
-        {
-            return new MetadataValue
-            {
-                NameID = nameID,
-                Value = (uint)gpuAddress | MSB
-            };
-        }
     }
 }

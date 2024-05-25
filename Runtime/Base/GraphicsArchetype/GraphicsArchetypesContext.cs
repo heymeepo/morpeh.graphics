@@ -43,7 +43,6 @@ namespace Scellecs.Morpeh.Graphics
         public unsafe NativeGraphicsArchetypes AsNative()
         {
             ThrowExceptionIfIsNotValid();
-
             var nativeArchetypes = new NativeGraphicsArchetypes();
 
             fixed (int* archetypesIndicesPtr = &handle.usedGraphicsArchetypesIndices.data[0])

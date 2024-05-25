@@ -181,8 +181,7 @@ namespace Scellecs.Morpeh.Graphics
                 return;
             }
 
-            if (repeatCount <= 0)
-                repeatCount = 1;
+            repeatCount = repeatCount <= 0 ? 1 : repeatCount;
 
             UnsafeUtility.MemCpy(dst + dataOffset, src, size);
             var op = new Operation
@@ -210,10 +209,7 @@ namespace Scellecs.Morpeh.Graphics
                 return;
             }
 
-            if (repeatCount <= 0)
-            {
-                repeatCount = 1;
-            }
+            repeatCount = repeatCount <= 0 ? 1 : repeatCount;
 
             byte* srcBuffer = dst + dataOffset;
             ref var srcData = ref uploadArgs.srcData->Convert<byte>();

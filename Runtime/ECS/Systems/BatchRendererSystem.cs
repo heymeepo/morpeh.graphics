@@ -233,9 +233,6 @@ namespace Scellecs.Morpeh.Graphics
                 case GpuUploadOperation.UploadOperationKind.SOAMatrixUpload3x4:
                     threadedSparseUploader.AddMatrixUpload(ref operation.src, operation.dstOffset, operation.dstOffsetInverse);
                     break;
-
-                default:
-                    break;
             }
         }
     }
