@@ -35,6 +35,8 @@ namespace Scellecs.Morpeh.Graphics
 
             sharedContextStash = World.GetStash<SharedBatchRendererGroupContext>();
             sharedContextStash.Set(World.CreateEntity(), new SharedBatchRendererGroupContext() { brg = brg });
+
+            Debug.Log(MAX_INSTANCES_PER_BATCH);
         }
 
         public void Dispose() => brg?.Dispose();

@@ -1,6 +1,10 @@
 ﻿using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine.Rendering;
 using UnityEngine;
+using Unity.Burst.Intrinsics;
+using UnityEngine.Assertions;
+using Unity.Burst.CompilerServices;
+using Unity.Burst;
 
 namespace Scellecs.Morpeh.Graphics.Utilities
 {
@@ -21,6 +25,7 @@ namespace Scellecs.Morpeh.Graphics.Utilities
         public const int GPU_UPLOADER_CHUNK_SIZE = 4 * 1024 * 1024;
         public const int BYTES_PER_BATCH_RAW_BUFFER = 256 * 1024;
 
+        public const int MAX_INSTANCES_PER_BATCH = BYTES_PER_BATCH_RAW_BUFFER / (SIZE_OF_MATRIX3X4 * 2);
         public const int MAX_INSTANCES_PER_DRAW_COMMAND = 4096;
         public const int MAX_INSTANCES_PER_DRAW_RANGE = 4096;
         public const int MAX_DRAW_COMMANDS_PER_DRAW_RANGE = 512;
@@ -38,5 +43,23 @@ namespace Scellecs.Morpeh.Graphics.Utilities
         public static int AsInt(this BatchID batchId) => (int)batchId.value;
 
         public static int Align16Bytes(int size) => ((size + 15) >> 4) << 4;
+
+        [BurstCompile]
+        public static v128 ComputeBitmask(int entityCount) => ShiftRight(new v128(ulong.MaxValue), 128 - entityCount);
+
+        [BurstCompile]
+        public static v128 ShiftRight(in v128 v, int n)
+        {
+            if (Hint.Unlikely(n >= 128))
+                return default;
+            if (Hint.Unlikely(n == 0))
+                return v;
+            if (n >= 64)
+                return new v128(v.ULong1 >> (n - 64), 0);
+            // 0 < n < 64
+            ulong lowToLow = v.ULong0 >> n;
+            ulong highToLow = v.ULong1 << (64 - n);
+            return new v128(lowToLow | highToLow, v.ULong1 >> n);
+        }
     }
 }

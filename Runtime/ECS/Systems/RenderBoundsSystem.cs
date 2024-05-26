@@ -104,15 +104,13 @@ namespace Scellecs.Morpeh.Graphics
         public int* batchesIndices;
 
         [NativeDisableUnsafePtrRestriction]
-        public GraphicsArchetype* archetypes;
-
-        [NativeDisableUnsafePtrRestriction]
         public BatchInfo* batchesInfos;
 
+        [NativeDisableUnsafePtrRestriction]
+        public GraphicsArchetype* archetypes;
+
         public NativeStash<LocalToWorld> localToWorldStash;
-
         public NativeStash<RenderBounds> renderBoundsStash;
-
         public NativeStash<WorldRenderBounds> worldRenderBoundsStash;
 
         public void Execute(int index)

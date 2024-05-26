@@ -32,6 +32,7 @@ namespace Scellecs.Morpeh.Graphics
         /// <summary>
         /// All entities that correspond to this GraphicsArchetype
         /// </summary>
+        [ReadOnly]
         public NativeFilter entities;
 
         /// <summary>

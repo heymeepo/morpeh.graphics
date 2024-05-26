@@ -1,9 +1,7 @@
-﻿using Scellecs.Morpeh.Collections;
-using Scellecs.Morpeh.Graphics.Collections;
+﻿using Scellecs.Morpeh.Graphics.Collections;
 using Scellecs.Morpeh.Graphics.Culling;
 using Scellecs.Morpeh.Graphics.Utilities;
 using Scellecs.Morpeh.Native;
-using Scellecs.Morpeh.Transforms;
 using Scellecs.Morpeh.Workaround;
 using Scellecs.Morpeh.Workaround.WorldAllocator;
 using System;
@@ -12,6 +10,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
@@ -27,34 +26,38 @@ namespace Scellecs.Morpeh.Graphics
         private ValueBlitDescriptor bufferHeaderBlitDescriptor;
         private ThreadLocalAllocator threadAllocator;
 
+        private Stash<WorldRenderBounds> boundsStash;
+
         public void OnAwake()
         {
             brg = EcsHelpers.GetBatchRendererGroupContext(World);
             brg.SetCullingCallback(OnPerformCulling);
             graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
+            threadAllocator = new ThreadLocalAllocator(-1);
             bufferHeaderBlitDescriptor = default;
+
+            boundsStash = World.GetStash<WorldRenderBounds>();
         }
 
         public void OnUpdate(float deltaTime)
         {
-            //threadAllocator.Rewind();
+            threadAllocator.Rewind();
             ExecuteGpuUploads();
         }
 
         public void Dispose()
         {
-
+            threadAllocator.Dispose();
         }
 
         private void ExecuteGpuUploads()
         {
             var allocator = World.GetUpdateAllocator();
-
             var existingBatches = brg.GetExistingBatchesIndices();
             var totalBatchesCount = existingBatches.count;
             var totalOverridesCount = graphicsArchetypes.GetTotalArchetypePropertiesCount();
 
-            int maximumGpuUploads = totalBatchesCount * totalOverridesCount;
+            var maximumGpuUploads = totalBatchesCount * totalOverridesCount;
             var gpuUploadOperations = allocator.AllocateNativeArray<GpuUploadOperation>(maximumGpuUploads, NativeArrayOptions.UninitializedMemory);
             var numGpuUploads = new NativeReference<int>(Allocator.TempJob);
 
@@ -124,7 +127,27 @@ namespace Scellecs.Morpeh.Graphics
             BatchCullingOutput cullingOutput,
             IntPtr userContext)
         {
-            //var visibilityItems = new IndirectList<>
+            var nativeArchetypes = graphicsArchetypes.AsNative();
+            var existingBatches = brg.GetExistingBatchesIndices();
+            var maxVisibilityItemsCount = (int)math.ceil((float)existingBatches.count * MAX_INSTANCES_PER_BATCH / 128);
+            var visibilityItems = new IndirectList<BatchVisibilityItem>(maxVisibilityItemsCount, threadAllocator.GeneralAllocator);
+            var cullLightmapShadowCasters = (cullingContext.cullingFlags & BatchCullingFlags.CullLightmappedShadowCasters) != 0;
+
+            var frustumCullingHandle = new FrustumCullingJob
+            {
+                threadIndex = 0,
+                batchesIndices = existingBatches.GetUnsafeDataPtr(),
+                batchesInfos = brg.GetBatchInfosUnsafePtr(),
+                archetypes = nativeArchetypes.archetypes,
+                boundsStash = boundsStash.AsNative(),
+                visibilityItems = visibilityItems,
+                threadLocalAllocator = threadAllocator,
+                cullingSplits = CullingSplits.Create(&cullingContext, QualitySettings.shadowProjection, threadAllocator.GeneralAllocator->Handle),
+                cullingViewType = cullingContext.viewType
+            }
+            .ScheduleParallel(existingBatches.count, 8, default);
+
+            frustumCullingHandle.Complete();
 
             return default;
         }

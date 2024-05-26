@@ -25,13 +25,6 @@ namespace Scellecs.Morpeh.Graphics
                 biggestUploadBytes = math.max(biggestUploadBytes, numBytes);
             }
 
-            //for (int i = 0; i < valueBlits.Length; ++i)
-            //{
-            //    var numBytes = valueBlits[i].BytesRequiredInUploadBuffer;
-            //    totalUploadBytes += numBytes;
-            //    biggestUploadBytes = math.max(biggestUploadBytes, numBytes);
-            //}
-
             return new SparseBufferUploadRequirements()
             {
                 numOperations = numGpuUploadOperations,
