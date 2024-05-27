@@ -1,34 +1,39 @@
-﻿using Scellecs.Morpeh.Graphics.Collections;
-using Scellecs.Morpeh.Graphics.Culling;
+﻿using Scellecs.Morpeh.Collections;
+using Scellecs.Morpeh.Graphics.Collections;
+using Scellecs.Morpeh.Workaround;
 using System;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {
-    internal sealed class BatchRendererGroupContext : IDisposable
+    internal unsafe sealed class BatchRendererGroupContext : IDisposable
     {
+        public SparseBuffer Buffer { get; private set; }
+        public IntSparseSetFixed ExistingBatchesIndices => existingBatchesIndices;
+        public BatchFilterSettings* BatchFilterSettingsPtr => batchFilterSettings.GetUnsafeDataPtr();
+        public BatchInfo* BatchesInfosPtr => batchesInfos.GetUnsafePtr();
+
         private BatchRendererGroup brg;
-        private SparseBuffer brgBuffer;
         private ThreadedBatchContext threadedBatchContext;
 
-        private ResizableArray<BatchInfo> batchInfos;
-        private IntSparseSet existingBatchesIndices;
+        private ResizableArray<BatchInfo> batchesInfos;
+        private IntHashMap<BatchFilterSettings> batchFilterSettings;
+        private IntSparseSetFixed existingBatchesIndices;
 
         private BatchRendererGroup.OnPerformCulling cullingCallback;
 
-        public BatchRendererGroupContext(SparseBufferArgs bufferArgs)
+        public BatchRendererGroupContext(int maxBatchesCount, SparseBufferArgs bufferArgs)
         {
             brg = new BatchRendererGroup(OnPerformCulling, IntPtr.Zero);
-            brgBuffer = new SparseBuffer(bufferArgs);
-            batchInfos = new ResizableArray<BatchInfo>();
+            Buffer = new SparseBuffer(bufferArgs);
+            batchesInfos = new ResizableArray<BatchInfo>();
+            batchFilterSettings = new IntHashMap<BatchFilterSettings>();
+            existingBatchesIndices = new IntSparseSetFixed(maxBatchesCount);
             threadedBatchContext = brg.GetThreadedBatchContext();
-            existingBatchesIndices = new IntSparseSet(64);
         }
 
         public void SetGlobalBounds(Bounds bounds) => brg.SetGlobalBounds(bounds);
@@ -39,20 +44,44 @@ namespace Scellecs.Morpeh.Graphics
 
         public BatchID AddBatch(NativeArray<MetadataValue> metadata)
         {
-            var batchID = threadedBatchContext.AddBatch(metadata, brgBuffer.Handle);
-            var batchIndex = batchID.AsInt();
+            var batchID = threadedBatchContext.AddBatch(metadata, Buffer.Handle);
+            var batchIndex = BatchIDAsInt(batchID);
             existingBatchesIndices.Add(batchIndex);
             return batchID;
         }
 
         public void RemoveBatch(BatchID batchID)
         {
-            var batchIndex = batchID.AsInt();
+            var batchIndex = BatchIDAsInt(batchID);
             existingBatchesIndices.Remove(batchIndex);
             threadedBatchContext.RemoveBatch(batchID);
         }
 
-        public void AddBatchInfo(BatchInfo info, int index) => batchInfos.AddAt(index, info);
+        public void AddBatchInfo(BatchInfo info, int index) => batchesInfos.AddAt(index, info);
+
+        public int GetBatchFilterSettingsIndex(ref RenderFilterSettings filterSettings)
+        {
+            var hash = filterSettings.GetHashCode(); //precompute hash some way?
+            var index = batchFilterSettings.TryGetIndex(hash);
+
+            if (index < 0)
+            {
+                var settings = new BatchFilterSettings
+                {
+                    layer = (byte)filterSettings.layer,
+                    renderingLayerMask = filterSettings.renderingLayerMask,
+                    motionMode = filterSettings.motionMode,
+                    shadowCastingMode = filterSettings.shadowCastingMode,
+                    receiveShadows = filterSettings.receiveShadows,
+                    staticShadowCaster = filterSettings.staticShadowCaster,
+                    allDepthSorted = false
+                };
+
+                batchFilterSettings.Add(hash, settings, out index);
+            }
+
+            return index;
+        }
 
         public BatchMeshID RegisterMesh(Mesh mesh) => brg.RegisterMesh(mesh);
 
@@ -62,25 +91,19 @@ namespace Scellecs.Morpeh.Graphics
 
         public void UnregisterMaterial(BatchMaterialID materialID) => brg.UnregisterMaterial(materialID);
 
-        public unsafe BatchInfo* GetBatchInfosUnsafePtr() => batchInfos.GetUnsafePtr();
-
-        public IntSparseSet GetExistingBatchesIndices() => existingBatchesIndices;
-
-        public SparseBuffer GetBuffer() => brgBuffer;
-
         public void UpdateBatchBufferHandles()
         {
             foreach (var batchID in existingBatchesIndices)
             {
-                brg.SetBatchBuffer(IntAsBatchID(batchID), brgBuffer.Handle);
+                brg.SetBatchBuffer(IntAsBatchID(batchID), Buffer.Handle);
             }
         }
 
         public void Dispose()
         {
             brg.Dispose();
-            brgBuffer.Dispose();
-            batchInfos.Dispose();
+            Buffer.Dispose();
+            batchesInfos.Dispose();
             existingBatchesIndices.Dispose();
             threadedBatchContext = default;
             cullingCallback = default;

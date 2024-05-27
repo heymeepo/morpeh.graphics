@@ -5,31 +5,18 @@ using Unity.IL2CPP.CompilerServices;
 
 namespace Scellecs.Morpeh.Graphics.Collections
 {
-    internal unsafe sealed class IntSparseSet : IDisposable
+    internal unsafe sealed class IntSparseSetFixed : IDisposable
     {
         internal IntPinnedArray sparse;
         internal IntPinnedArray dense;
 
-        internal int capacity;
         internal int count;
 
-        public IntSparseSet(int defaultCapacity)
+        public IntSparseSetFixed(int maxSize)
         {
-            this.capacity = defaultCapacity;
-
-            this.sparse = new IntPinnedArray(defaultCapacity);
-            this.dense = new IntPinnedArray(defaultCapacity);
-
+            this.sparse = new IntPinnedArray(maxSize);
+            this.dense = new IntPinnedArray(maxSize);
             this.count = 0;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Resize(int newCapacity)
-        {
-            this.capacity = newCapacity;
-
-            sparse.Resize(this.capacity);
-            dense.Resize(this.capacity);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -38,13 +25,6 @@ namespace Scellecs.Morpeh.Graphics.Collections
             if (this.Contains(value))
             {
                 return false;
-            }
-
-            if (value >= capacity)
-            {
-                var logBase2 = Math.Log(value, 2);
-                int nextPower = (int)Math.Ceiling(logBase2);
-                Resize(1 << nextPower);
             }
 
             this.dense.ptr[this.count] = value;
@@ -73,7 +53,7 @@ namespace Scellecs.Morpeh.Graphics.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Contains(int value)
         {
-            return value < capacity && this.sparse.ptr[value] < this.count && this.dense.ptr[this.sparse.ptr[value]] == value;
+            return this.sparse.ptr[value] < this.count && this.dense.ptr[this.sparse.ptr[value]] == value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

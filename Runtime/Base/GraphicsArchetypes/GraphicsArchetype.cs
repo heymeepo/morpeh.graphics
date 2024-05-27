@@ -1,5 +1,6 @@
 ﻿using Scellecs.Morpeh.Native;
 using System;
+using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -9,7 +10,7 @@ namespace Scellecs.Morpeh.Graphics
     internal struct GraphicsArchetype : IDisposable
     {
         /// <summary>
-        /// List of overriden shader properties indices that correspond to this GraphicsArchetype
+        /// Overriden shader properties indices that correspond to this GraphicsArchetype
         /// </summary>
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]
@@ -47,8 +48,10 @@ namespace Scellecs.Morpeh.Graphics
         [ReadOnly]
         public long hash;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int ExpectedBatchesCount() => (int)math.ceil((float)entities.length / maxEntitiesPerBatch);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int ActualBatchesCount() => math.min(ExpectedBatchesCount(), batchesIndices.Length);
 
         public void Dispose()

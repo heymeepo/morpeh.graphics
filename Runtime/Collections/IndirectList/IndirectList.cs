@@ -1,5 +1,6 @@
 ﻿using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
+using Unity.Jobs;
 
 namespace Scellecs.Morpeh.Graphics.Collections
 {
@@ -26,5 +27,7 @@ namespace Scellecs.Morpeh.Graphics.Collections
             *indirectList = new UnsafeList<T>(capacity, allocatorHandle);
             return indirectList;
         }
+
+        public JobHandle Dispose(JobHandle dependency) => default;
     }
 }

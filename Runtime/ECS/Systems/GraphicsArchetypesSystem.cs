@@ -10,6 +10,7 @@ using System.Linq;
 using Unity.Collections;
 using UnityEngine;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
+using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpersNonBursted;
 
 namespace Scellecs.Morpeh.Graphics
 {
@@ -19,7 +20,6 @@ namespace Scellecs.Morpeh.Graphics
 
         private GraphicsArchetypesHandle archetypesHandle;
         private GraphicsArchetypesContext archetypes;
-        private BatchRendererGroupContext brg;
 
         private IntHashMap<ArchetypeProperty> propertiesTypeIdCache;
         private ResizableArray<UnmanagedStash> propertiesStashes;
@@ -47,7 +47,6 @@ namespace Scellecs.Morpeh.Graphics
                 .With<MaterialMeshInfo>()
                 .Build();
             
-            brg = EcsHelpers.GetBatchRendererGroupContext(World);
             InitializeGraphicsArchetypes();
         }
 
@@ -166,7 +165,7 @@ namespace Scellecs.Morpeh.Graphics
 
                     for (int i = 0; i < info.archetypesLength; i++)
                     {
-                        usedEcsArchetypes.Add(info.archetypes[i].GetArchetypeHash()); //TODO: use list of hashmaps instead of copying them
+                        usedEcsArchetypes.Add(info.archetypes[i].GetArchetypeHash());
                     }
                 }
             }
@@ -221,7 +220,7 @@ namespace Scellecs.Morpeh.Graphics
             properties[1] = worldToObjectIndex;
 
             var counter = 2;
-            var filterBuilder = World.Filter.With<LocalToWorld>().With<MaterialMeshInfo>();
+            var filterBuilder = World.Filter.With<LocalToWorld>().With<RenderBounds>().With<WorldRenderBounds>().With<MaterialMeshInfo>();
 
             foreach (var idx in propertiesTypeIdCache)
             {
@@ -246,7 +245,7 @@ namespace Scellecs.Morpeh.Graphics
                 bytesPerEntity += size;
             }
 
-            var maxEntitiesPerBatch = BYTES_PER_BATCH_RAW_BUFFER / bytesPerEntity;
+            var maxEntitiesPerBatch = BYTES_PER_BATCH / bytesPerEntity;
 
             var overrideStream = new NativeArray<int>(propertiesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             overrideStream[0] = 0;

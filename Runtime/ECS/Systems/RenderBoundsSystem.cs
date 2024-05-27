@@ -26,8 +26,8 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brg = EcsHelpers.GetBatchRendererGroupContext(World);
-            graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
+            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
+            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
 
             renderBoundsStash = World.GetStash<RenderBounds>();
             worldRenderBoundsStash = World.GetStash<WorldRenderBounds>();
@@ -47,8 +47,8 @@ namespace Scellecs.Morpeh.Graphics
             ThreadLocalAABB.AssertCacheLineSize();
 
             var nativeArchetypes = graphicsArchetypes.AsNative();
-            var batchesIndices = brg.GetExistingBatchesIndices();
-            var batchInfos = brg.GetBatchInfosUnsafePtr();
+            var batchesIndices = brg.ExistingBatchesIndices;
+            var batchInfos = brg.BatchesInfosPtr;
 
             var updateRenderBoundsHandle = new UpdateRenderBoundsJob()
             {

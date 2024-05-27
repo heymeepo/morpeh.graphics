@@ -162,7 +162,7 @@ namespace Scellecs.Morpeh.Graphics.Culling
                     var enabledMask = j == 0 ? enabledMask128.ULong0 : enabledMask128.ULong1;
                     var lodWord = enabledMask;
                     ulong visibleWord = 0;
-
+                    UnityEngine.Debug.Assert(true);
                     while (lodWord != 0)
                     {
                         var bitIndex = math.tzcnt(lodWord);

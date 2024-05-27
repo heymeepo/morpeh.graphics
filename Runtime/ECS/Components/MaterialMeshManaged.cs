@@ -10,5 +10,6 @@ namespace Scellecs.Morpeh.Graphics
     {
         public Mesh mesh;
         public Material material;
+        public int submeshIndex;
     }
 }

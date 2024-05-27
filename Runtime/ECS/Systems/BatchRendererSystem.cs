@@ -5,6 +5,7 @@ using Scellecs.Morpeh.Native;
 using Scellecs.Morpeh.Workaround;
 using Scellecs.Morpeh.Workaround.WorldAllocator;
 using System;
+using System.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -26,21 +27,35 @@ namespace Scellecs.Morpeh.Graphics
         private ValueBlitDescriptor bufferHeaderBlitDescriptor;
         private ThreadLocalAllocator threadAllocator;
 
+        private JobHandle cullingJobDependency;
+        private JobHandle cullingJobReleaseDependency;
+
         private Stash<WorldRenderBounds> boundsStash;
+        private Stash<MaterialMeshInfo> materialMeshInfosStash;
+        private Stash<RenderFilterSettingsIndex> filterSettingsIndicesStash;
 
         public void OnAwake()
         {
-            brg = EcsHelpers.GetBatchRendererGroupContext(World);
-            brg.SetCullingCallback(OnPerformCulling);
-            graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
+            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
+            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
             threadAllocator = new ThreadLocalAllocator(-1);
             bufferHeaderBlitDescriptor = default;
 
+            cullingJobDependency = default;
+            cullingJobReleaseDependency = default;
+
+            brg.SetCullingCallback(OnPerformCulling);
+
             boundsStash = World.GetStash<WorldRenderBounds>();
+            materialMeshInfosStash = World.GetStash<MaterialMeshInfo>();
+            filterSettingsIndicesStash = World.GetStash<RenderFilterSettingsIndex>();
         }
 
         public void OnUpdate(float deltaTime)
         {
+            cullingJobReleaseDependency.Complete();
+            cullingJobReleaseDependency = default;
+
             threadAllocator.Rewind();
             ExecuteGpuUploads();
         }
@@ -48,16 +63,18 @@ namespace Scellecs.Morpeh.Graphics
         public void Dispose()
         {
             threadAllocator.Dispose();
+            cullingJobDependency.Complete();
+            cullingJobReleaseDependency.Complete();
         }
 
         private void ExecuteGpuUploads()
         {
             var allocator = World.GetUpdateAllocator();
-            var existingBatches = brg.GetExistingBatchesIndices();
-            var totalBatchesCount = existingBatches.count;
+            var existingBatches = brg.ExistingBatchesIndices;
+            var batchesCount = existingBatches.count;
             var totalOverridesCount = graphicsArchetypes.GetTotalArchetypePropertiesCount();
 
-            var maximumGpuUploads = totalBatchesCount * totalOverridesCount;
+            var maximumGpuUploads = batchesCount * totalOverridesCount;
             var gpuUploadOperations = allocator.AllocateNativeArray<GpuUploadOperation>(maximumGpuUploads, NativeArrayOptions.UninitializedMemory);
             var numGpuUploads = new NativeReference<int>(Allocator.TempJob);
 
@@ -69,14 +86,14 @@ namespace Scellecs.Morpeh.Graphics
                 archetypes = nativeArchetypes.archetypes,
                 properties = nativeArchetypes.properties,
                 propertiesStashes = nativeArchetypes.propertiesStashes,
-                batchesInfos = brg.GetBatchInfosUnsafePtr(),
+                batchesInfos = brg.BatchesInfosPtr,
                 numGpuUploadOperations = numGpuUploads.GetUnsafePtr(),
                 gpuUploadOperations = gpuUploadOperations
             }
-            .ScheduleParallel(totalBatchesCount, 16, default).Complete();
+            .ScheduleParallel(batchesCount, 16, default).Complete();
 
             var uploadHeader = bufferHeaderBlitDescriptor.BytesRequiredInUploadBuffer == 0;
-            var uploadRequirements = SparseBufferUtility.ComputeUploadSizeRequirements(numGpuUploads.Value, gpuUploadOperations);
+            var uploadRequirements = SparseBufferUploadRequirements.ComputeUploadSizeRequirements(numGpuUploads.Value, gpuUploadOperations);
 
             if (uploadHeader)
             {
@@ -88,13 +105,10 @@ namespace Scellecs.Morpeh.Graphics
                     count = 1
                 };
 
-                var numBytes = bufferHeaderBlitDescriptor.BytesRequiredInUploadBuffer;
-                uploadRequirements.numOperations++;
-                uploadRequirements.totalUploadBytes += numBytes;
-                uploadRequirements.biggestUploadBytes = math.max(uploadRequirements.biggestUploadBytes, numBytes);
+                uploadRequirements += SparseBufferUploadRequirements.ComputeUploadSizeRequirements(bufferHeaderBlitDescriptor);
             }
 
-            var brgBuffer = brg.GetBuffer();
+            var brgBuffer = brg.Buffer;
             var threadedBufferUploader = brgBuffer.Begin(uploadRequirements, out bool bufferResized);
 
             var uploadGpuOperationsHandle = new ExecuteGpuUploadOperationsJob()
@@ -121,23 +135,75 @@ namespace Scellecs.Morpeh.Graphics
             brgBuffer.EndAndCommit();
         }
 
+        private void DidScheduleCullingJob(JobHandle job) => cullingJobDependency = JobHandle.CombineDependencies(job, cullingJobDependency);
+
+        private void DebugDrawCommands(JobHandle drawCommandsDependency, BatchCullingOutput cullingOutput)
+        {
+            drawCommandsDependency.Complete();
+
+            var drawCommands = cullingOutput.drawCommands[0];
+
+            Debug.Log($"Draw Command summary: visibleInstanceCount: {drawCommands.visibleInstanceCount} drawCommandCount: {drawCommands.drawCommandCount} drawRangeCount: {drawCommands.drawRangeCount}");
+
+#if DEBUG_LOG_DRAW_COMMANDS_VERBOSE
+            bool verbose = true;
+#else
+            bool verbose = false;
+#endif
+            if (verbose)
+            {
+                for (int i = 0; i < drawCommands.drawCommandCount; ++i)
+                {
+                    var cmd = drawCommands.drawCommands[i];
+                    DrawCommandSettings settings = new DrawCommandSettings
+                    {
+                        BatchID = cmd.batchID,
+                        MaterialID = cmd.materialID,
+                        MeshID = cmd.meshID,
+                        SubMeshIndex = cmd.submeshIndex,
+                        Flags = cmd.flags,
+                    };
+                    Debug.Log($"Draw Command #{i}: {settings} visibleOffset: {cmd.visibleOffset} visibleCount: {cmd.visibleCount}");
+                    StringBuilder sb = new StringBuilder((int)cmd.visibleCount * 30);
+                    bool hasSortingPosition = settings.HasSortingPosition;
+                    for (int j = 0; j < cmd.visibleCount; ++j)
+                    {
+                        sb.Append(drawCommands.visibleInstances[cmd.visibleOffset + j]);
+                        if (hasSortingPosition)
+                            sb.AppendFormat(" ({0:F3} {1:F3} {2:F3})",
+                                drawCommands.instanceSortingPositions[cmd.sortingPosition + 0],
+                                drawCommands.instanceSortingPositions[cmd.sortingPosition + 1],
+                                drawCommands.instanceSortingPositions[cmd.sortingPosition + 2]);
+                        sb.Append(", ");
+                    }
+                    Debug.Log($"Draw Command #{i} instances: [{sb}]");
+                }
+            }
+        }
+
         private JobHandle OnPerformCulling(
             BatchRendererGroup rendererGroup,
             BatchCullingContext cullingContext,
             BatchCullingOutput cullingOutput,
             IntPtr userContext)
         {
+            var existingBatches = brg.ExistingBatchesIndices;
+
+            if (existingBatches.count == 0)
+            {
+                return default;
+            }
+
             var nativeArchetypes = graphicsArchetypes.AsNative();
-            var existingBatches = brg.GetExistingBatchesIndices();
             var maxVisibilityItemsCount = (int)math.ceil((float)existingBatches.count * MAX_INSTANCES_PER_BATCH / 128);
             var visibilityItems = new IndirectList<BatchVisibilityItem>(maxVisibilityItemsCount, threadAllocator.GeneralAllocator);
             var cullLightmapShadowCasters = (cullingContext.cullingFlags & BatchCullingFlags.CullLightmappedShadowCasters) != 0;
 
-            var frustumCullingHandle = new FrustumCullingJob
+            var frustumCullingHandle = new FrustumCullingJob()
             {
                 threadIndex = 0,
                 batchesIndices = existingBatches.GetUnsafeDataPtr(),
-                batchesInfos = brg.GetBatchInfosUnsafePtr(),
+                batchesInfos = brg.BatchesInfosPtr,
                 archetypes = nativeArchetypes.archetypes,
                 boundsStash = boundsStash.AsNative(),
                 visibilityItems = visibilityItems,
@@ -145,11 +211,109 @@ namespace Scellecs.Morpeh.Graphics
                 cullingSplits = CullingSplits.Create(&cullingContext, QualitySettings.shadowProjection, threadAllocator.GeneralAllocator->Handle),
                 cullingViewType = cullingContext.viewType
             }
-            .ScheduleParallel(existingBatches.count, 8, default);
+            .ScheduleParallel(existingBatches.count, 8, cullingJobDependency);
 
-            frustumCullingHandle.Complete();
+            DidScheduleCullingJob(frustumCullingHandle);
 
-            return default;
+            var drawCommandOutput = new DrawCommandOutput(1, threadAllocator, cullingOutput);
+
+            var emitDrawCommandsJob = new EmitDrawCommandsJob
+            {
+                batchFilterSettings = brg.BatchFilterSettingsPtr,
+                batchesInfos = brg.BatchesInfosPtr,
+                archetypes = nativeArchetypes.archetypes,
+                visibilityItems = visibilityItems,
+                filterSettingsIndices = filterSettingsIndicesStash.AsNative(),
+                materialMeshInfos = materialMeshInfosStash.AsNative(),
+                cullingLayerMask = cullingContext.cullingLayerMask,
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var allocateWorkItemsJob = new AllocateWorkItemsJob
+            {
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var collectWorkItemsJob = new CollectWorkItemsJob
+            {
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var flushWorkItemsJob = new FlushWorkItemsJob
+            {
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var allocateInstancesJob = new AllocateInstancesJob
+            {
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var allocateDrawCommandsJob = new AllocateDrawCommandsJob
+            {
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var expandInstancesJob = new ExpandVisibleInstancesJob
+            {
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var generateDrawCommandsJob = new GenerateDrawCommandsJob
+            {
+                drawCommandOutput = drawCommandOutput
+            };
+
+            var generateDrawRangesJob = new GenerateDrawRangesJob
+            {
+                drawCommandOutput = drawCommandOutput,
+                filterSettings = brg.BatchFilterSettingsPtr,
+            };
+
+            var emitDrawCommandsDependency = emitDrawCommandsJob.ScheduleWithIndirectList(visibilityItems, 1, cullingJobDependency);
+
+            var collectGlobalBinsDependency =
+                drawCommandOutput.BinCollector.ScheduleFinalize(emitDrawCommandsDependency);
+
+            var sortBinsDependency = DrawBinSort.ScheduleBinSort(
+                threadAllocator.GeneralAllocator,
+                drawCommandOutput.SortedBins,
+                drawCommandOutput.UnsortedBins,
+                collectGlobalBinsDependency);
+
+            var allocateWorkItemsDependency = allocateWorkItemsJob.Schedule(collectGlobalBinsDependency);
+            var collectWorkItemsDependency = collectWorkItemsJob.ScheduleWithIndirectList(drawCommandOutput.UnsortedBins, 1, allocateWorkItemsDependency);
+            var flushWorkItemsDependency = flushWorkItemsJob.Schedule(MAX_JOB_WORKERS, 1, collectWorkItemsDependency);
+            var allocateInstancesDependency = allocateInstancesJob.Schedule(flushWorkItemsDependency);
+
+            var allocateDrawCommandsDependency = allocateDrawCommandsJob.Schedule(
+                JobHandle.CombineDependencies(sortBinsDependency, flushWorkItemsDependency));
+
+            var allocationsDependency = JobHandle.CombineDependencies(
+                allocateInstancesDependency,
+                allocateDrawCommandsDependency);
+
+            var expandInstancesDependency = expandInstancesJob.ScheduleWithIndirectList(
+                drawCommandOutput.WorkItems,
+                1,
+                allocateInstancesDependency);
+            var generateDrawCommandsDependency = generateDrawCommandsJob.ScheduleWithIndirectList(
+                drawCommandOutput.SortedBins,
+                1,
+                allocationsDependency);
+            var generateDrawRangesDependency = generateDrawRangesJob.Schedule(allocateDrawCommandsDependency);
+
+            var expansionDependency = JobHandle.CombineDependencies(
+                expandInstancesDependency,
+                generateDrawCommandsDependency,
+                generateDrawRangesDependency);
+
+            cullingJobReleaseDependency = JobHandle.CombineDependencies(cullingJobReleaseDependency, drawCommandOutput.Dispose(expansionDependency));
+
+            DidScheduleCullingJob(emitDrawCommandsDependency);
+            DidScheduleCullingJob(expansionDependency);
+
+            return cullingJobDependency;
         }
     }
 

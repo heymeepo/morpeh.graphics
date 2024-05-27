@@ -18,8 +18,8 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brg = EcsHelpers.GetBatchRendererGroupContext(World);
-            graphicsArchetypes = EcsHelpers.GetGraphicsArchetypesContext(World);
+            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
+            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
             unreferencedBatchesIndices = new BitMap();
         }
 
@@ -32,7 +32,7 @@ namespace Scellecs.Morpeh.Graphics
             unreferencedBatchesIndices.Clear();
 
             NativeList<BatchCreateInfo> batchCreateInfos = new NativeList<BatchCreateInfo>(Allocator.Temp);
-            var existingBatchesIndices = brg.GetExistingBatchesIndices();
+            var existingBatchesIndices = brg.ExistingBatchesIndices;
             var archetypesIndices = graphicsArchetypes.GetUsedGraphicsArchetypesIndices();
 
             foreach (var batchIndex in existingBatchesIndices)
@@ -82,8 +82,8 @@ namespace Scellecs.Morpeh.Graphics
 
         private unsafe void RemoveBatch(int batchIndex)
         {
-            var brgBuffer = brg.GetBuffer();
-            var batchInfos = brg.GetBatchInfosUnsafePtr();
+            var brgBuffer = brg.Buffer;
+            var batchInfos = brg.BatchesInfosPtr;
             var batchInfo = batchInfos[batchIndex];
 
             var archetypeIndex = batchInfo.archetypeIndex;
@@ -114,9 +114,9 @@ namespace Scellecs.Morpeh.Graphics
 
         private bool AddBatch(ref GraphicsArchetype archetype, int archetypeIndex)
         {
-            var brgBuffer = brg.GetBuffer();
+            var brgBuffer = brg.Buffer;
 
-            if (brgBuffer.Allocate(BYTES_PER_BATCH_RAW_BUFFER, BATCH_ALLOCATION_ALIGNMENT, out var batchGpuAllocation) == false)
+            if (brgBuffer.Allocate(BYTES_PER_BATCH, BATCH_ALLOCATION_ALIGNMENT, out var batchGpuAllocation) == false)
             {
                 return false;
             }
@@ -139,7 +139,7 @@ namespace Scellecs.Morpeh.Graphics
             }
 
             var batchID = brg.AddBatch(metadata);
-            var batchIndex = batchID.AsInt();
+            var batchIndex = BatchIDAsInt(batchID);
             var batchInternalIndex = archetype.batchesIndices.Length;
             var batchInfo = new BatchInfo()
             {

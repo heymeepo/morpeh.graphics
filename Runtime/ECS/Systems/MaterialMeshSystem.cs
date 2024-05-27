@@ -22,7 +22,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brg = EcsHelpers.GetBatchRendererGroupContext(World);
+            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
 
             registerMaterialMeshFilter = World.Filter
                 .With<LocalToWorld>()
@@ -55,6 +55,11 @@ namespace Scellecs.Morpeh.Graphics
             RegisterNewEntitiesMaterialMeshInfo();
             UnregisterDeletedEntitiesMaterialMeshInfo();
             UpdateChangedMaterialMeshInfo();
+
+            if (materialMeshManagedStash.Length > 0)
+            {
+                materialMeshManagedStash.RemoveAll();
+            }
         }
 
         private void RegisterNewEntitiesMaterialMeshInfo()
@@ -67,7 +72,7 @@ namespace Scellecs.Morpeh.Graphics
                 {
                     meshID = brg.RegisterMesh(managed.mesh),
                     materialID = brg.RegisterMaterial(managed.material),
-                    submeshIndex = 0
+                    submeshIndex = managed.submeshIndex
                 });
 
                 renderBoundsStash.Set(entity, new RenderBounds()
@@ -76,7 +81,6 @@ namespace Scellecs.Morpeh.Graphics
                 });
 
                 worldRenderBoundsStash.Add(entity);
-                materialMeshManagedStash.Remove(entity);
             }
         }
 
@@ -108,7 +112,6 @@ namespace Scellecs.Morpeh.Graphics
                 materialMeshInfo.materialID = brg.RegisterMaterial(managed.material);
 
                 renderBounds.value = managed.mesh.bounds.ToAABB();
-                materialMeshManagedStash.Remove(entity);
             }
         }
 

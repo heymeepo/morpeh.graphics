@@ -14,7 +14,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brg = new BatchRendererGroupContext(new SparseBufferArgs()
+            brg = new BatchRendererGroupContext(MAX_BATCHES_COUNT, new SparseBufferArgs()
             {
                 target = GraphicsBuffer.Target.Raw,
                 flags = GraphicsBuffer.UsageFlags.None,
@@ -31,12 +31,10 @@ namespace Scellecs.Morpeh.Graphics
             });
 
             brg.SetGlobalBounds(new Bounds(float3.zero, new float3(1048576f)));
-            brg.GetBuffer().Allocate(SIZE_OF_MATRIX4X4, 16, out _);
+            brg.Buffer.Allocate(SIZE_OF_MATRIX4X4, 16, out _);
 
             sharedContextStash = World.GetStash<SharedBatchRendererGroupContext>();
             sharedContextStash.Set(World.CreateEntity(), new SharedBatchRendererGroupContext() { brg = brg });
-
-            Debug.Log(MAX_INSTANCES_PER_BATCH);
         }
 
         public void Dispose() => brg?.Dispose();

@@ -7,12 +7,12 @@ namespace Scellecs.Morpeh.Graphics
     {
         public GraphicsBufferHandle Handle { get; private set; }
 
-        internal GraphicsBuffer buffer;
-        internal HeapAllocator allocator;
-        internal SparseUploader uploader;
-        internal ThreadedSparseUploader threadedUploader;
-        internal SparseBufferArgs args;
-        internal ulong bufferSize;
+        private GraphicsBuffer buffer;
+        private HeapAllocator allocator;
+        private SparseUploader uploader;
+        private ThreadedSparseUploader threadedUploader;
+        private SparseBufferArgs args;
+        private ulong bufferSize;
 
         public SparseBuffer(SparseBufferArgs creationArgs)
         {

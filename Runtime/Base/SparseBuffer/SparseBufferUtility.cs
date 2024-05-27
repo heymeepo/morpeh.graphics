@@ -1,7 +1,4 @@
-﻿using Unity.Burst;
-using Unity.Collections;
-using Unity.Mathematics;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Scellecs.Morpeh.Graphics
 {
@@ -10,27 +7,6 @@ namespace Scellecs.Morpeh.Graphics
         public static GraphicsBuffer CreateGraphicsBuffer(ref SparseBufferArgs args, ulong bufferSize)
         {
             return new GraphicsBuffer(args.target, args.flags, (int)bufferSize / args.stride, args.stride);
-        }
-
-        [BurstCompile]
-        public static SparseBufferUploadRequirements ComputeUploadSizeRequirements(int numGpuUploadOperations, NativeArray<GpuUploadOperation> gpuUploadOperations)
-        {
-            var totalUploadBytes = 0;
-            var biggestUploadBytes = 0;
-
-            for (int i = 0; i < numGpuUploadOperations; ++i)
-            {
-                var numBytes = gpuUploadOperations[i].BytesRequiredInUploadBuffer;
-                totalUploadBytes += numBytes;
-                biggestUploadBytes = math.max(biggestUploadBytes, numBytes);
-            }
-
-            return new SparseBufferUploadRequirements()
-            {
-                numOperations = numGpuUploadOperations,
-                totalUploadBytes = totalUploadBytes,
-                biggestUploadBytes = biggestUploadBytes
-            };
         }
     }
 }
