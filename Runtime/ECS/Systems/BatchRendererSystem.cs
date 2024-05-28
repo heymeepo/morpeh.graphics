@@ -201,7 +201,7 @@ namespace Scellecs.Morpeh.Graphics
 
             if (batchesCount == 0)
             {
-                return default;
+                return cullingJobDependency;
             }
 
             var nativeArchetypes = graphicsArchetypes.AsNative();
@@ -223,6 +223,8 @@ namespace Scellecs.Morpeh.Graphics
                 cullLightmapShadowCasters = cullLightmapShadowCasters
             }
             .ScheduleParallel(batchesCount, 8, cullingJobDependency);
+
+            DidScheduleCullingJob(frustumCullingHandle);
 
             var drawCommandOutput = new DrawCommandOutput(1, threadAllocator, cullingOutput);
 
