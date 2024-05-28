@@ -57,7 +57,7 @@ namespace Scellecs.Morpeh.Graphics
             threadedBatchContext.RemoveBatch(batchID);
         }
 
-        public void AddBatchInfo(BatchInfo info, int index) => batchesInfos.AddAt(index, info);
+        public void AddBatchInfo(BatchInfo info, int index) => batchesInfos.Set(index, info);
 
         public int GetBatchFilterSettingsIndex(ref RenderFilterSettings filterSettings)
         {

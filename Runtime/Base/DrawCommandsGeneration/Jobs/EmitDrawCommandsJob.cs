@@ -111,6 +111,10 @@ namespace Scellecs.Morpeh.Graphics
 
         private void EmitDrawCommand(in DrawCommandSettings settings, int entityQword, int entityBit, int chunkStartIndex/*, NativeArray<LocalToWorld> localToWorlds*/)
         {
+            //Expand LocalToWorld hashmap into an array in the RenderBoundsSystem with threaded rewindable allocator for each index in the NativeFilter?
+            //Do the same for WorldRenderBonds instead of components usage?
+            //Alternatively some rework in the ExpandVisibleInstancesJob
+
             // Depth sorted draws are emitted with access to entity transforms,
             // so they can also be written out for sorting
             //if (settings.HasSortingPosition)

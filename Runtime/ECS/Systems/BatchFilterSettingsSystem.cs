@@ -1,8 +1,4 @@
-﻿using Scellecs.Morpeh.Collections;
-using Scellecs.Morpeh.Graphics.Utilities;
-using Scellecs.Morpeh.Native;
-using Scellecs.Morpeh.Workaround;
-using UnityEngine.Rendering;
+﻿using Scellecs.Morpeh.Graphics.Utilities;
 
 namespace Scellecs.Morpeh.Graphics
 {
@@ -12,14 +8,23 @@ namespace Scellecs.Morpeh.Graphics
 
         private BatchRendererGroupContext brg;
 
+        private Filter setDefaultFilterSettings;
         private Filter changeBatchFilterSettingsIndex;
 
         private Stash<RenderFilterSettings> filterSettingsStash;
         private Stash<RenderFilterSettingsIndex> filterSettingsIndicesStash;
 
+        private int defaultBatchFilterSettingsIndex;
+
         public void OnAwake()
         {
             brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
+
+            setDefaultFilterSettings = World.Filter
+                .With<MaterialMeshInfo>()
+                .Without<RenderFilterSettings>()
+                .Without<RenderFilterSettingsIndex>()
+                .Build();
 
             changeBatchFilterSettingsIndex = World.Filter
                 .With<RenderFilterSettings>()
@@ -27,9 +32,31 @@ namespace Scellecs.Morpeh.Graphics
 
             filterSettingsStash = World.GetStash<RenderFilterSettings>();
             filterSettingsIndicesStash = World.GetStash<RenderFilterSettingsIndex>();
+
+            InitDefaultIndex();
         }
 
         public unsafe void OnUpdate(float deltaTime)
+        {
+            SetDefaultFilterIndex();
+            ChangeBatchFilterSettingsIndex();
+        }
+
+        private void InitDefaultIndex()
+        {
+            var def = RenderFilterSettings.Default;
+            defaultBatchFilterSettingsIndex = brg.GetBatchFilterSettingsIndex(ref def);
+        }
+
+        private void SetDefaultFilterIndex()
+        {
+            foreach (var entity in setDefaultFilterSettings)
+            {
+                filterSettingsIndicesStash.Set(entity, new RenderFilterSettingsIndex() { index = defaultBatchFilterSettingsIndex });
+            }
+        }
+
+        private void ChangeBatchFilterSettingsIndex()
         {
             if (filterSettingsStash.Length > 0)
             {

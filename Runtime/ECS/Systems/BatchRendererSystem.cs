@@ -41,10 +41,10 @@ namespace Scellecs.Morpeh.Graphics
             threadAllocator = new ThreadLocalAllocator(-1);
             bufferHeaderBlitDescriptor = default;
 
+            brg.SetCullingCallback(OnPerformCulling);
+
             cullingJobDependency = default;
             cullingJobReleaseDependency = default;
-
-            brg.SetCullingCallback(OnPerformCulling);
 
             boundsStash = World.GetStash<WorldRenderBounds>();
             materialMeshInfosStash = World.GetStash<MaterialMeshInfo>();
@@ -53,6 +53,8 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
+            cullingJobDependency.Complete();
+            cullingJobDependency = default;
             cullingJobReleaseDependency.Complete();
             cullingJobReleaseDependency = default;
 
@@ -69,9 +71,15 @@ namespace Scellecs.Morpeh.Graphics
 
         private void ExecuteGpuUploads()
         {
-            var allocator = World.GetUpdateAllocator();
             var existingBatches = brg.ExistingBatchesIndices;
             var batchesCount = existingBatches.count;
+
+            if (batchesCount == 0)
+            {
+                return;
+            }
+
+            var allocator = World.GetUpdateAllocator();
             var totalOverridesCount = graphicsArchetypes.GetTotalArchetypePropertiesCount();
 
             var maximumGpuUploads = batchesCount * totalOverridesCount;
@@ -188,14 +196,15 @@ namespace Scellecs.Morpeh.Graphics
             IntPtr userContext)
         {
             var existingBatches = brg.ExistingBatchesIndices;
+            var batchesCount = existingBatches.count;
 
-            if (existingBatches.count == 0)
+            if (batchesCount == 0)
             {
-                return default;
+                return cullingJobDependency;
             }
 
             var nativeArchetypes = graphicsArchetypes.AsNative();
-            var maxVisibilityItemsCount = (int)math.ceil((float)existingBatches.count * MAX_INSTANCES_PER_BATCH / 128);
+            var maxVisibilityItemsCount = (int)math.ceil((float)batchesCount * MAX_INSTANCES_PER_BATCH / 128);
             var visibilityItems = new IndirectList<BatchVisibilityItem>(maxVisibilityItemsCount, threadAllocator.GeneralAllocator);
             var cullLightmapShadowCasters = (cullingContext.cullingFlags & BatchCullingFlags.CullLightmappedShadowCasters) != 0;
 
@@ -209,11 +218,10 @@ namespace Scellecs.Morpeh.Graphics
                 visibilityItems = visibilityItems,
                 threadLocalAllocator = threadAllocator,
                 cullingSplits = CullingSplits.Create(&cullingContext, QualitySettings.shadowProjection, threadAllocator.GeneralAllocator->Handle),
-                cullingViewType = cullingContext.viewType
+                cullingViewType = cullingContext.viewType,
+                cullLightmapShadowCasters = cullLightmapShadowCasters
             }
-            .ScheduleParallel(existingBatches.count, 8, cullingJobDependency);
-
-            DidScheduleCullingJob(frustumCullingHandle);
+            .ScheduleParallel(batchesCount, 8, cullingJobDependency);
 
             var drawCommandOutput = new DrawCommandOutput(1, threadAllocator, cullingOutput);
 
@@ -271,9 +279,7 @@ namespace Scellecs.Morpeh.Graphics
             };
 
             var emitDrawCommandsDependency = emitDrawCommandsJob.ScheduleWithIndirectList(visibilityItems, 1, cullingJobDependency);
-
-            var collectGlobalBinsDependency =
-                drawCommandOutput.BinCollector.ScheduleFinalize(emitDrawCommandsDependency);
+            var collectGlobalBinsDependency = drawCommandOutput.BinCollector.ScheduleFinalize(emitDrawCommandsDependency);
 
             var sortBinsDependency = DrawBinSort.ScheduleBinSort(
                 threadAllocator.GeneralAllocator,
@@ -365,12 +371,12 @@ namespace Scellecs.Morpeh.Graphics
 
             AddUpload(ref uploadSrc, sizeBytes, dstOffset, dstOffsetInverse, GpuUploadOperation.UploadOperationKind.SOAMatrixUpload3x4);
 
-            for (int j = 2; j < archetype.propertiesIndices.Length; j++)
+            for (int i = 2; i < archetype.propertiesIndices.Length; i++)
             {
-                propertyIndex = archetype.propertiesIndices[j];
+                propertyIndex = archetype.propertiesIndices[i];
                 ref var property = ref properties[propertyIndex];
 
-                dstOffset = batchBegin + archetype.sourceMetadataStream[j];
+                dstOffset = batchBegin + archetype.sourceMetadataStream[i];
                 sizeBytes = property.size * batchEntitiesCount;
 
                 uploadSrc = new UploadDataSource()

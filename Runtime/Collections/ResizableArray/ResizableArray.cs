@@ -17,7 +17,7 @@ namespace Scellecs.Morpeh.Graphics.Collections
         public unsafe ref T this[int index] => ref data.ptr[index];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AddAt(int index, T value)
+        public void Set(int index, T value)
         {
             if (index >= data.Length)
             {

@@ -1,6 +1,5 @@
 ﻿using Scellecs.Morpeh.Collections;
 using Scellecs.Morpeh.Graphics.Collections;
-using Scellecs.Morpeh.Graphics.Utilities;
 using Scellecs.Morpeh.Native;
 using Scellecs.Morpeh.Transforms;
 using Scellecs.Morpeh.Workaround;
@@ -42,11 +41,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            allExistingGraphicsEntitiesFilter = World.Filter
-                .With<LocalToWorld>()
-                .With<MaterialMeshInfo>()
-                .Build();
-            
+            allExistingGraphicsEntitiesFilter = World.Filter.Extend<GraphicsAspect>().Build();
             InitializeGraphicsArchetypes();
         }
 
@@ -214,13 +209,14 @@ namespace Scellecs.Morpeh.Graphics
         private void CreateGraphicsArchetype(long graphicsArchetypeHash, int propertiesCount, int[] includeBuffer)
         {
             propertiesCount += 2;
+
             var properties = new NativeArray<int>(propertiesCount, Allocator.Persistent);
+            var counter = 2;
 
             properties[0] = objectToWorldIndex;
             properties[1] = worldToObjectIndex;
 
-            var counter = 2;
-            var filterBuilder = World.Filter.With<LocalToWorld>().With<RenderBounds>().With<WorldRenderBounds>().With<MaterialMeshInfo>();
+            var filterBuilder = World.Filter.Extend<GraphicsAspect>();
 
             foreach (var idx in propertiesTypeIdCache)
             {

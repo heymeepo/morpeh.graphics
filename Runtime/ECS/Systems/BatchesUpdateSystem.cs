@@ -14,12 +14,14 @@ namespace Scellecs.Morpeh.Graphics
         private BatchRendererGroupContext brg;
         private GraphicsArchetypesContext graphicsArchetypes;
 
+        private FastList<BatchCreateInfo> batchCreateInfos;
         private BitMap unreferencedBatchesIndices;
 
         public void OnAwake()
         {
             brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
             graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
+            batchCreateInfos = new FastList<BatchCreateInfo>();
             unreferencedBatchesIndices = new BitMap();
         }
 
@@ -31,7 +33,6 @@ namespace Scellecs.Morpeh.Graphics
         {
             unreferencedBatchesIndices.Clear();
 
-            NativeList<BatchCreateInfo> batchCreateInfos = new NativeList<BatchCreateInfo>(Allocator.Temp);
             var existingBatchesIndices = brg.ExistingBatchesIndices;
             var archetypesIndices = graphicsArchetypes.GetUsedGraphicsArchetypesIndices();
 
@@ -68,13 +69,13 @@ namespace Scellecs.Morpeh.Graphics
                 }
             }
 
-            RemoveUnreferencedBatches(unreferencedBatchesIndices);
-            AddBatches(batchCreateInfos);
+            RemoveUnreferencedBatches();
+            AddBatches();
         }
 
-        private void RemoveUnreferencedBatches(BitMap batchesIndices)
+        private void RemoveUnreferencedBatches()
         {
-            foreach (var batchIndex in batchesIndices)
+            foreach (var batchIndex in unreferencedBatchesIndices)
             {
                 RemoveBatch(batchIndex);
             }
@@ -98,11 +99,11 @@ namespace Scellecs.Morpeh.Graphics
             }
         }
 
-        private void AddBatches(NativeList<BatchCreateInfo> createInfos)
+        private void AddBatches()
         {
-            for (int i = 0; i < createInfos.Length; i++)
+            for (int i = 0; i < batchCreateInfos.length; i++)
             {
-                var info = createInfos[i];
+                var info = batchCreateInfos.data[i];
                 ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(info.archetypeIndex);
 
                 for (int j = 0; j < info.batchesCount; j++)
@@ -152,7 +153,7 @@ namespace Scellecs.Morpeh.Graphics
             archetype.batchesIndices.Add(batchIndex);
             brg.AddBatchInfo(batchInfo, batchIndex);
 
-            return false;
+            return true;
         }
     }
 }

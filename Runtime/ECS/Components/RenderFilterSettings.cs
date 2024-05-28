@@ -1,10 +1,15 @@
 ﻿using System;
 using Unity.Collections;
+using Unity.IL2CPP.CompilerServices;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Scellecs.Morpeh.Graphics
 {
+    [System.Serializable]
+    [Il2CppSetOption(Option.NullChecks, false)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, false)]
+    [Il2CppSetOption(Option.DivideByZeroChecks, false)]
     public struct RenderFilterSettings : IComponent, IEquatable<RenderFilterSettings>
     {
         /// For entities that Unity converts from GameObjects, this value is the same as the Layer setting of the source

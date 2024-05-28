@@ -33,8 +33,7 @@ namespace Scellecs.Morpeh.Graphics.Culling
         public CullingSplits cullingSplits;
         public BatchCullingViewType cullingViewType;
 
-        //public bool CullLightmapShadowCasters;
-        //[ReadOnly] public SharedComponentTypeHandle<LightMaps> LightMaps;
+        public bool cullLightmapShadowCasters;
 
         public void Execute(int index)
         {
