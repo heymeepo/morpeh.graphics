@@ -38,6 +38,7 @@ namespace Scellecs.Morpeh.Graphics
         {
             brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
             graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
+
             threadAllocator = new ThreadLocalAllocator(-1);
             bufferHeaderBlitDescriptor = default;
 
@@ -200,7 +201,7 @@ namespace Scellecs.Morpeh.Graphics
 
             if (batchesCount == 0)
             {
-                return cullingJobDependency;
+                return default;
             }
 
             var nativeArchetypes = graphicsArchetypes.AsNative();
@@ -303,10 +304,12 @@ namespace Scellecs.Morpeh.Graphics
                 drawCommandOutput.WorkItems,
                 1,
                 allocateInstancesDependency);
+
             var generateDrawCommandsDependency = generateDrawCommandsJob.ScheduleWithIndirectList(
                 drawCommandOutput.SortedBins,
                 1,
                 allocationsDependency);
+
             var generateDrawRangesDependency = generateDrawRangesJob.Schedule(allocateDrawCommandsDependency);
 
             var expansionDependency = JobHandle.CombineDependencies(

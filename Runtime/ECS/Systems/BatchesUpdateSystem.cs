@@ -32,6 +32,7 @@ namespace Scellecs.Morpeh.Graphics
         private void UpdateBatches()
         {
             unreferencedBatchesIndices.Clear();
+            batchCreateInfos.Clear();
 
             var existingBatchesIndices = brg.ExistingBatchesIndices;
             var archetypesIndices = graphicsArchetypes.GetUsedGraphicsArchetypesIndices();
