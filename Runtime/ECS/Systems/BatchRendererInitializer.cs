@@ -1,4 +1,9 @@
-﻿using Unity.Mathematics;
+﻿#if URP_10_0_0_OR_NEWER
+using UnityEngine.Rendering.Universal;
+using System.Reflection;
+#endif
+
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
@@ -35,8 +40,38 @@ namespace Scellecs.Morpeh.Graphics
 
             sharedContextStash = World.GetStash<SharedBatchRendererGroupContext>();
             sharedContextStash.Set(World.CreateEntity(), new SharedBatchRendererGroupContext() { brg = brg });
+
+            ValidateUsingURPForwardPlus();
         }
 
         public void Dispose() => brg?.Dispose();
+
+#if URP_10_0_0_OR_NEWER
+        private void ValidateUsingURPForwardPlus()
+        {
+            RenderPipelineAsset pipelineAsset = GraphicsSettings.renderPipelineAsset;
+            if (pipelineAsset is UniversalRenderPipelineAsset)
+            {
+                UniversalRenderPipelineAsset settings = pipelineAsset as UniversalRenderPipelineAsset;
+                var rendererDataListField = typeof(UniversalRenderPipelineAsset).GetField("m_RendererDataList", BindingFlags.NonPublic | BindingFlags.Instance);
+                var defaultRendererIndexField = typeof(UniversalRenderPipelineAsset).GetField("m_DefaultRendererIndex", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (rendererDataListField != null && defaultRendererIndexField != null)
+                {
+                    ScriptableRendererData[] rendererDatas = rendererDataListField.GetValue(settings) as ScriptableRendererData[];
+                    int defaultRendererDataIndex = (int)defaultRendererIndexField.GetValue(settings);
+                    UniversalRendererData universalRendererData = rendererDatas[defaultRendererDataIndex] as UniversalRendererData;
+                    var renderingModeField = typeof(UniversalRendererData).GetField("m_RenderingMode", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (renderingModeField != null && universalRendererData != null)
+                    {
+                        RenderingMode renderingMode = (RenderingMode)renderingModeField.GetValue(universalRendererData);
+                        if (renderingMode != RenderingMode.ForwardPlus)
+                        {
+                            Debug.LogWarning("BatchRendererGroup should be used with URP Forward+. Change Rendering Path on " + universalRendererData.name + " for best compatibility.");
+                        }
+                    }
+                }
+            }
+        }
+#endif
     }
 }

@@ -12,6 +12,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
@@ -136,7 +137,9 @@ namespace Scellecs.Morpeh.Graphics
 
             numGpuUploads.Dispose(default);
             JobHandle.CombineDependencies(uploadHeaderHandle, uploadGpuOperationsHandle).Complete();
+            //Profiler.BeginSample("CommitSparseBuffer");
             brgBuffer.EndAndCommit();
+            //Profiler.EndSample();
         }
 
         private void CompleteAndResetDependencies()

@@ -75,20 +75,7 @@ namespace Scellecs.Morpeh.Graphics
             newGraphicsArchetypesFilters = new LongHashMap<Filter>();
             usedEcsArchetypes = new LongHashSet();
 
-            var overrideComponentsTypes = ReflectionHelpers
-                .GetAssemblies()
-                .GetTypesWithAttribute<BatchMaterialPropertyAttribute>()
-                .Where(x => typeof(IComponent).IsAssignableFrom(x) && x.IsValueType);
-
-            foreach (var componentType in overrideComponentsTypes)
-            {
-                var attribute = componentType.GetAttribute<BatchMaterialPropertyAttribute>();
-                var size = (short)attribute.Format.GetSizeFormat();
-                var shaderId = Shader.PropertyToID(attribute.MaterialPropertyId);
-
-                AddArchetypeProperty(shaderId, size, componentType);
-            }
-
+            AddArchetypePropertiesReflection();
             AddArchetypeProperty(SPHERICAL_HARMONIC_COEFFICIENTS_ID, SIZE_OF_SHCOEFFICIENTS, typeof(BuiltinMaterialPropertyUnity_SHCoefficients));
 
             var basePropertiesArrayLength = propertiesTypeIdCache.data.Length;
@@ -130,6 +117,23 @@ namespace Scellecs.Morpeh.Graphics
             archetypes = new GraphicsArchetypesContext(archetypesHandle);
             graphicsArchetypesStash = World.GetStash<SharedGraphicsArchetypesContext>();
             graphicsArchetypesStash.Set(World.CreateEntity(), new SharedGraphicsArchetypesContext() { graphicsArchetypes = archetypes });
+        }
+
+        private void AddArchetypePropertiesReflection()
+        {
+            var overrideComponentsTypes = ReflectionHelpers
+                .GetAssemblies()
+                .GetTypesWithAttribute<BatchMaterialPropertyAttribute>()
+                .Where(x => typeof(IComponent).IsAssignableFrom(x) && x.IsValueType);
+
+            foreach (var componentType in overrideComponentsTypes)
+            {
+                var attribute = componentType.GetAttribute<BatchMaterialPropertyAttribute>();
+                var size = attribute.Format.GetSizeFormat();
+                var shaderId = Shader.PropertyToID(attribute.MaterialPropertyId);
+
+                AddArchetypeProperty(shaderId, size, componentType);
+            }
         }
 
         private void AddArchetypeProperty(int shaderId, int size, Type componentType)

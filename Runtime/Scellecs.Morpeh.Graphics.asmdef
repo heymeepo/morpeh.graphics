@@ -6,6 +6,7 @@
         "GUID:e0cd26848372d4e5c891c569017e11f1",
         "GUID:d8b63aba1907145bea998dd612889d6b",
         "GUID:df380645f10b7bc4b97d4f5eb6303d95",
+        "GUID:15fc0a57446b3144c949da3e2b9737a9",
         "GUID:3377deebfb0acde45876d12c6e3d27cc",
         "GUID:e7f3544f233681345800e6daa01357c0",
         "GUID:494ebf02df38b0f46bfef995b9c0c582",
@@ -18,6 +19,17 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "9.9.9",
+            "define": "URP_10_0_0_OR_NEWER"
+        },
+        {
+            "name": "com.unity.render-pipelines.core",
+            "expression": "9.9.9",
+            "define": "SRP_10_0_0_OR_NEWER"
+        }
+    ],
     "noEngineReferences": false
 }
