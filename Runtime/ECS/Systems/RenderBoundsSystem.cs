@@ -44,6 +44,7 @@ namespace Scellecs.Morpeh.Graphics
                 threadLocalAABBs = threadLocalAABBs
             }
             .ScheduleParallel(MAX_JOB_WORKERS, 16, default);
+
             ThreadLocalAABB.AssertCacheLineSize();
 
             var nativeArchetypes = graphicsArchetypes.AsNative();

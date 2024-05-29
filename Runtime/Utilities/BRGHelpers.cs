@@ -19,6 +19,7 @@ namespace Scellecs.Morpeh.Graphics.Utilities
         public const int SIZE_OF_MATRIX2X4 = SIZE_OF_FLOAT4 * 2;
         public const int SIZE_OF_MATRIX3X4 = SIZE_OF_FLOAT4 * 3;
         public const int SIZE_OF_MATRIX4X4 = SIZE_OF_FLOAT4 * 4;
+        public const int SIZE_OF_SHCOEFFICIENTS = 1 << 7;
 
         public const long GPU_BUFFER_INITIAL_SIZE = 32 * 1024 * 1024;
         public const long GPU_BUFFER_MAX_SIZE = 1023 * 1024 * 1024;
@@ -65,6 +66,7 @@ namespace Scellecs.Morpeh.Graphics.Utilities
     {
         public static readonly int OBJECT_TO_WORLD_ID = Shader.PropertyToID("unity_ObjectToWorld");
         public static readonly int WORLD_TO_OBJECT_ID = Shader.PropertyToID("unity_WorldToObject");
+        public static readonly int SPHERICAL_HARMONIC_COEFFICIENTS_ID = Shader.PropertyToID("unity_SHCoefficients");
 
         public static BatchRendererGroupContext GetBatchRendererGroupContext(World world)
         {

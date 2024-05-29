@@ -54,20 +54,15 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
-            cullingJobDependency.Complete();
-            cullingJobDependency = default;
-            cullingJobReleaseDependency.Complete();
-            cullingJobReleaseDependency = default;
-
+            CompleteAndResetDependencies();
             threadAllocator.Rewind();
             ExecuteGpuUploads();
         }
 
         public void Dispose()
         {
+            CompleteAndResetDependencies();
             threadAllocator.Dispose();
-            cullingJobDependency.Complete();
-            cullingJobReleaseDependency.Complete();
         }
 
         private void ExecuteGpuUploads()
@@ -142,6 +137,14 @@ namespace Scellecs.Morpeh.Graphics
             numGpuUploads.Dispose(default);
             JobHandle.CombineDependencies(uploadHeaderHandle, uploadGpuOperationsHandle).Complete();
             brgBuffer.EndAndCommit();
+        }
+
+        private void CompleteAndResetDependencies()
+        {
+            cullingJobDependency.Complete();
+            cullingJobDependency = default;
+            cullingJobReleaseDependency.Complete();
+            cullingJobReleaseDependency = default;
         }
 
         private void DidScheduleCullingJob(JobHandle job) => cullingJobDependency = JobHandle.CombineDependencies(job, cullingJobDependency);

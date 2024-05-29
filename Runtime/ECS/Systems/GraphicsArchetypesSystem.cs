@@ -82,23 +82,14 @@ namespace Scellecs.Morpeh.Graphics
 
             foreach (var componentType in overrideComponentsTypes)
             {
-                var typeId = MorpehInternalTools.GetTypeId(componentType);
-                var typeHash = MorpehInternalTools.GetTypeHash(componentType);
                 var attribute = componentType.GetAttribute<BatchMaterialPropertyAttribute>();
-                var shaderId = Shader.PropertyToID(attribute.MaterialPropertyId);
                 var size = (short)attribute.Format.GetSizeFormat();
+                var shaderId = Shader.PropertyToID(attribute.MaterialPropertyId);
 
-                var property = new ArchetypeProperty()
-                {
-                    componentTypeId = typeId,
-                    componentTypeHash = typeHash,
-                    shaderId = shaderId,
-                    size = size
-                };
-
-                propertiesTypeIdCache.Add(typeId, property, out int propertyIndex);
+                AddArchetypeProperty(shaderId, size, componentType);
             }
 
+            AddArchetypeProperty(SPHERICAL_HARMONIC_COEFFICIENTS_ID, SIZE_OF_SHCOEFFICIENTS, typeof(BuiltinMaterialPropertyUnity_SHCoefficients));
 
             var basePropertiesArrayLength = propertiesTypeIdCache.data.Length;
             var totalPropertiesArrayLength = basePropertiesArrayLength + 2;
@@ -139,6 +130,22 @@ namespace Scellecs.Morpeh.Graphics
             archetypes = new GraphicsArchetypesContext(archetypesHandle);
             graphicsArchetypesStash = World.GetStash<SharedGraphicsArchetypesContext>();
             graphicsArchetypesStash.Set(World.CreateEntity(), new SharedGraphicsArchetypesContext() { graphicsArchetypes = archetypes });
+        }
+
+        private void AddArchetypeProperty(int shaderId, int size, Type componentType)
+        {
+            var typeId = MorpehInternalTools.GetTypeId(componentType);
+            var typeHash = MorpehInternalTools.GetTypeHash(componentType);
+
+            var property = new ArchetypeProperty()
+            {
+                componentTypeId = typeId,
+                componentTypeHash = typeHash,
+                shaderId = shaderId,
+                size = size
+            };
+
+            propertiesTypeIdCache.Add(typeId, property, out _);
         }
 
         private void UpdateGraphicsArchetypesFilters()
@@ -184,21 +191,21 @@ namespace Scellecs.Morpeh.Graphics
                 {
                     var graphicsArchetypeHash = 0L;
                     var components = ArchetypeWorkaroundExtensions.GetArchetypeComponents(archetype);
-                    var newComponentsCounter = 0;
+                    var propertiesCount = 0;
 
                     foreach (var typeId in components)
                     {
-                        if (propertiesTypeIdCache.TryGetValue(typeId, out var property, out var index))
+                        if (propertiesTypeIdCache.TryGetValue(typeId, out var property, out var idx))
                         {
-                            newArchetypeIncludeExcludeBuffer[index] = 1;
+                            newArchetypeIncludeExcludeBuffer[idx] = 1;
                             graphicsArchetypeHash ^= property.componentTypeHash;
-                            newComponentsCounter++;
+                            propertiesCount++;
                         }
                     }
 
                     if (newGraphicsArchetypes.Has(graphicsArchetypeHash) == false)
                     {
-                        CreateGraphicsArchetype(graphicsArchetypeHash, newComponentsCounter, newArchetypeIncludeExcludeBuffer);
+                        CreateGraphicsArchetype(graphicsArchetypeHash, propertiesCount, newArchetypeIncludeExcludeBuffer);
                     }
 
                     Array.Clear(newArchetypeIncludeExcludeBuffer, 0, newArchetypeIncludeExcludeBuffer.Length);
@@ -210,12 +217,13 @@ namespace Scellecs.Morpeh.Graphics
         {
             propertiesCount += 2;
 
-            var properties = new NativeArray<int>(propertiesCount, Allocator.Persistent);
+            var properties = new NativeArray<int>(propertiesCount, Allocator.Persistent)
+            {
+                [0] = objectToWorldIndex,
+                [1] = worldToObjectIndex
+            };
+
             var counter = 2;
-
-            properties[0] = objectToWorldIndex;
-            properties[1] = worldToObjectIndex;
-
             var filterBuilder = World.Filter.Extend<GraphicsAspect>();
 
             foreach (var idx in propertiesTypeIdCache)
