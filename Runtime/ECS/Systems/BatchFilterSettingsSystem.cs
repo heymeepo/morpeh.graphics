@@ -2,6 +2,10 @@
 
 namespace Scellecs.Morpeh.Graphics
 {
+    /// <summary>
+    /// Manages batch filter settings of graphics entities.
+    /// Should be called before <see cref="GraphicsArchetypesSystem"/>.
+    /// </summary>
     public sealed class BatchFilterSettingsSystem : ICleanupSystem
     {
         public World World { get; set; }

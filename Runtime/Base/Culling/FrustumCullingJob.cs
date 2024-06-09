@@ -159,12 +159,11 @@ namespace Scellecs.Morpeh.Graphics.Culling
                 for (int j = 0; j < 2; j++)
                 {
                     var enabledMask = j == 0 ? enabledMask128.ULong0 : enabledMask128.ULong1;
-                    var lodWord = enabledMask;
                     ulong visibleWord = 0;
-                    UnityEngine.Debug.Assert(true);
-                    while (lodWord != 0)
+                    
+                    while (enabledMask != 0)
                     {
-                        var bitIndex = math.tzcnt(lodWord);
+                        var bitIndex = math.tzcnt(enabledMask);
                         var entityIndex = (j << 6) + bitIndex;
 
                         var entityId = filter[batchChunkFilterOffset + entityIndex];
@@ -173,7 +172,7 @@ namespace Scellecs.Morpeh.Graphics.Culling
 
                         int visible = FrustumPlanes.Intersect2NoPartial(splitPlanePackets, bounds.value) != FrustumPlanes.IntersectResult.Out ? 1 : 0;
 
-                        lodWord ^= 1ul << bitIndex;
+                        enabledMask ^= 1ul << bitIndex;
                         visibleWord |= (ulong)visible << bitIndex;
                     }
 
@@ -215,12 +214,11 @@ namespace Scellecs.Morpeh.Graphics.Culling
                     for (int j = 0; j < 2; j++)
                     {
                         var enabledMask = j == 0 ? enabledMask128.ULong0 : enabledMask128.ULong1;
-                        var lodWord = enabledMask;
                         ulong visibleWord = 0;
 
-                        while (lodWord != 0)
+                        while (enabledMask != 0)
                         {
-                            var bitIndex = math.tzcnt(lodWord);
+                            var bitIndex = math.tzcnt(enabledMask);
                             var entityIndex = (j << 6) + bitIndex;
                             ulong mask = 1ul << bitIndex;
 
@@ -228,7 +226,7 @@ namespace Scellecs.Morpeh.Graphics.Culling
                             var bounds = boundsStash.Get(entityId);
                             int visible = FrustumPlanes.Intersect2NoPartial(combinedSplitPlanes, bounds.value) != FrustumPlanes.IntersectResult.Out ? 1 : 0;
 
-                            lodWord ^= mask;
+                            enabledMask ^= mask;
                             visibleWord |= ((ulong)visible) << bitIndex;
 
                             if (visible != 0)

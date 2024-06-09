@@ -47,11 +47,10 @@ namespace Scellecs.Morpeh.Graphics
 
             fixed (int* archetypesIndicesPtr = &handle.usedGraphicsArchetypesIndices.data[0])
             fixed (GraphicsArchetype* archetypesPtr = &handle.graphicsArchetypes.data[0])
-            fixed (ArchetypeProperty* propertiesPtr = &handle.propertiesTypeIdCache.data[0])
             {
                 nativeArchetypes.archetypesIndices = archetypesIndicesPtr;
                 nativeArchetypes.archetypes = archetypesPtr;
-                nativeArchetypes.properties = propertiesPtr;
+                nativeArchetypes.properties = handle.propertiesTypeIdCache.GetUnsafeDataPtr();
                 nativeArchetypes.propertiesStashes = handle.propertiesStashes.GetUnsafePtr();
                 nativeArchetypes.usedArchetypesCount = handle.usedGraphicsArchetypesIndices.length;
             }

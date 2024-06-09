@@ -13,7 +13,7 @@ namespace Scellecs.Morpeh.Graphics
     internal unsafe sealed class BatchRendererGroupContext : IDisposable
     {
         public SparseBuffer Buffer { get; private set; }
-        public IntSparseSetFixed ExistingBatchesIndices => existingBatchesIndices;
+        public IntSparseSetFixed ExistingBatchesIndices => existingBatchesIndices; //TODO: return as ReadOnly
         public BatchFilterSettings* BatchFilterSettingsPtr => batchFilterSettings.GetUnsafeDataPtr();
         public BatchInfo* BatchesInfosPtr => batchesInfos.GetUnsafePtr();
 
@@ -61,7 +61,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public int GetBatchFilterSettingsIndex(ref RenderFilterSettings filterSettings)
         {
-            var hash = filterSettings.GetHashCode(); //precompute hash some way?
+            var hash = filterSettings.GetHashCode(); //TODO: precompute hash some way?
             var index = batchFilterSettings.TryGetIndex(hash);
 
             if (index < 0)

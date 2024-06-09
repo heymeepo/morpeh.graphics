@@ -15,7 +15,7 @@ namespace Scellecs.Morpeh.Graphics
         public World World { get; set; }
 
         private BatchRendererGroupContext brg;
-        private Stash<SharedBatchRendererGroupContext> sharedContextStash;
+        private Stash<SharedBatchRendererGroupContext> sharedBrgStash;
 
         public void OnAwake()
         {
@@ -38,17 +38,17 @@ namespace Scellecs.Morpeh.Graphics
             brg.SetGlobalBounds(new Bounds(float3.zero, new float3(1048576f)));
             brg.Buffer.Allocate(SIZE_OF_MATRIX4X4, 16, out _);
 
-            sharedContextStash = World.GetStash<SharedBatchRendererGroupContext>();
-            sharedContextStash.Set(World.CreateEntity(), new SharedBatchRendererGroupContext() { brg = brg });
+            sharedBrgStash = World.GetStash<SharedBatchRendererGroupContext>();
+            sharedBrgStash.Set(World.CreateEntity(), new SharedBatchRendererGroupContext() { brg = brg });
 
             ValidateUsingURPForwardPlus();
         }
 
         public void Dispose() => brg?.Dispose();
 
-#if URP_10_0_0_OR_NEWER
         private void ValidateUsingURPForwardPlus()
         {
+#if URP_10_0_0_OR_NEWER
             RenderPipelineAsset pipelineAsset = GraphicsSettings.renderPipelineAsset;
             if (pipelineAsset is UniversalRenderPipelineAsset)
             {
@@ -71,7 +71,7 @@ namespace Scellecs.Morpeh.Graphics
                     }
                 }
             }
-        }
 #endif
+        }
     }
 }

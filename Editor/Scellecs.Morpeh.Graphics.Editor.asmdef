@@ -1,0 +1,27 @@
+{
+    "name": "Scellecs.Morpeh.Graphics.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:bc3b0daec27db604caf7fec37e54bf6d",
+        "GUID:2a6bc844729f8e94391573d2e77c5ba0",
+        "GUID:2289f7b4b58e76145836b8a1a520fb23",
+        "GUID:c579267770062bf448e75eb160330b7f"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "9.9.9",
+            "define": "URP_10_0_0_OR_NEWER"
+        }
+    ],
+    "noEngineReferences": false
+}

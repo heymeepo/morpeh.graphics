@@ -13,6 +13,10 @@ using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpersNonBursted;
 
 namespace Scellecs.Morpeh.Graphics
 {
+    /// <summary>
+    /// Updates and prepares the rendering state of the current frame for further processing based on entities archetypes.
+    /// Any structural changes, such as component additions/removals and entity creations/destroying, are not allowed after this system has executed.
+    /// </summary>
     public sealed class GraphicsArchetypesSystem : ICleanupSystem
     {
         public World World { get; set; }
@@ -47,9 +51,9 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
-            AddNewGraphicsArchetypes();
             UpdateGraphicsArchetypesFilters();
             GatherNewGraphicsArchetypes();
+            AddNewGraphicsArchetypes();
             UpdateArchetypePropertiesStashes();
         }
 
@@ -288,9 +292,12 @@ namespace Scellecs.Morpeh.Graphics
             {
                 var archetype = newGraphicsArchetypes.GetValueByIndex(idx);
                 var filter = newGraphicsArchetypesFilters.GetValueByIndex(idx);
+                archetype.entities = filter.AsNative();
 
-                graphicsArchetypes.Add(archetype.hash, archetype, out _);
+                graphicsArchetypes.Add(archetype.hash, archetype, out int index);
                 graphicsArchetypesFilters.Add(archetype.hash, filter, out _);
+
+                usedGraphicsArchetypesIndices.Add(index);
             }
 
             newGraphicsArchetypes.Clear();

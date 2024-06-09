@@ -38,7 +38,7 @@ namespace Scellecs.Morpeh.Graphics.Collections
 
             public bool MoveNext()
             {
-                var slotsPtr = this.set.slots.ptr;
+                var slotsPtr = this.set.slots;
                 for (var len = this.set.lastIndex; this.index < len; this.index += 2)
                 {
                     var v = slotsPtr[this.index] - 1;

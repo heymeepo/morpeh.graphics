@@ -172,6 +172,25 @@ namespace Scellecs.Morpeh.Graphics
     }
 
     [BurstCompile]
+    internal unsafe struct FillPositionsOverridedJob : IJobFor
+    {
+        [NativeDisableUnsafePtrRestriction]
+        public Vector3* positions;
+
+        public NativeFilter filter;
+        public NativeStash<LocalToWorld> localToWorlds;
+        public NativeStash<OverrideLightProbeAnchor> overridesStash;
+
+        public void Execute(int index)
+        {
+            var entityId = filter[index];
+            var targetEntitiyId = overridesStash.Get(entityId).entity;
+            ref var localToWorld = ref localToWorlds.Get(targetEntitiyId, out bool exists);
+            positions[index] = exists ? localToWorld.Position : Vector3.zero;
+        }
+    }
+
+    [BurstCompile]
     internal unsafe struct UploadSHCoefficientsJob : IJobFor
     {
         [NativeDisableUnsafePtrRestriction]
@@ -189,25 +208,6 @@ namespace Scellecs.Morpeh.Graphics
             var shCoefficients = new SHCoefficients(lightProbes[index], occlusionProbes[index]);
             ref var sh = ref SHStash.Get(entityId);
             sh.value = shCoefficients;
-        }
-    }
-
-    [BurstCompile]
-    internal unsafe struct FillPositionsOverridedJob : IJobFor
-    {
-        [NativeDisableUnsafePtrRestriction]
-        public Vector3* positions;
-
-        public NativeFilter filter;
-        public NativeStash<LocalToWorld> localToWorlds;
-        public NativeStash<OverrideLightProbeAnchor> overridesStash;
-
-        public void Execute(int index)
-        {
-            var entityId = filter[index];
-            var targetEntitiyId = overridesStash.Get(entityId).entity;
-            ref var localToWorld = ref localToWorlds.Get(targetEntitiyId, out bool exists);
-            positions[index] = exists ? localToWorld.Position : Vector3.zero;
         }
     }
 }

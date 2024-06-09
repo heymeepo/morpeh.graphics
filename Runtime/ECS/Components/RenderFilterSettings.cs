@@ -70,7 +70,7 @@ namespace Scellecs.Morpeh.Graphics
         {
             layer = 0,
             renderingLayerMask = 0xffffffff,
-            motionMode = MotionVectorGenerationMode.Object,
+            motionMode = MotionVectorGenerationMode.Camera,
             shadowCastingMode = ShadowCastingMode.On,
             receiveShadows = true,
             staticShadowCaster = false,

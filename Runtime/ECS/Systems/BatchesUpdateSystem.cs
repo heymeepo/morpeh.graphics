@@ -116,9 +116,7 @@ namespace Scellecs.Morpeh.Graphics
 
         private bool AddBatch(ref GraphicsArchetype archetype, int archetypeIndex)
         {
-            var brgBuffer = brg.Buffer;
-
-            if (brgBuffer.Allocate(BYTES_PER_BATCH, BATCH_ALLOCATION_ALIGNMENT, out var batchGpuAllocation) == false)
+            if (brg.Buffer.Allocate(BYTES_PER_BATCH, BATCH_ALLOCATION_ALIGNMENT, out var batchGpuAllocation) == false)
             {
                 return false;
             }

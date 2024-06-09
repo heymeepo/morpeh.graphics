@@ -24,7 +24,7 @@ namespace Scellecs.Morpeh.Graphics
         public NativeList<int> batchesIndices;
 
         /// <summary>
-        /// The source memory layout of ArchetypeProperties inside the GPU buffer
+        /// The source memory layout per ArchetypeProperty inside the GPU buffer
         /// </summary>
         [NativeDisableParallelForRestriction]
         [NativeDisableContainerSafetyRestriction]

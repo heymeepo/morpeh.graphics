@@ -10,7 +10,7 @@
         "GUID:3377deebfb0acde45876d12c6e3d27cc",
         "GUID:e7f3544f233681345800e6daa01357c0",
         "GUID:494ebf02df38b0f46bfef995b9c0c582",
-        "GUID:55db836df77fa934daa1244c4db8a184"
+        "GUID:2289f7b4b58e76145836b8a1a520fb23"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -29,6 +29,11 @@
             "name": "com.unity.render-pipelines.core",
             "expression": "9.9.9",
             "define": "SRP_10_0_0_OR_NEWER"
+        },
+        {
+            "name": "com.scellecs.morpeh.entity-converter",
+            "expression": "",
+            "define": "MORPEH_ENTITY_CONVERTER"
         }
     ],
     "noEngineReferences": false

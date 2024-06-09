@@ -4,6 +4,10 @@ using Scellecs.Morpeh.Transforms;
 
 namespace Scellecs.Morpeh.Graphics
 {
+    /// <summary>
+    /// Manages the registration, unregistration, and updating of material and mesh information of graphics entites.
+    /// Should be called before <see cref="BatchFilterSettingsSystem"/> and <see cref="GraphicsArchetypesSystem"/>.
+    /// </summary>
     public sealed class MaterialMeshSystem : ICleanupSystem
     {
         public World World { get; set; }
