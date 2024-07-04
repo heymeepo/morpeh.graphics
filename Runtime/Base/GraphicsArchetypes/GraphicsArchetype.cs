@@ -37,6 +37,12 @@ namespace Scellecs.Morpeh.Graphics
         public NativeFilter entities;
 
         /// <summary>
+        /// Is entities of this GraphicsArchetype have baked lightmaps
+        /// </summary>
+        [ReadOnly]
+        public bool isLightMapped;
+
+        /// <summary>
         /// The maximum number of entities per batch. Based on the amount of memory allocated on the GPU for each entity of this archetype.
         /// </summary>
         [ReadOnly]

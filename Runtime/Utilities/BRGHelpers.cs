@@ -66,6 +66,9 @@ namespace Scellecs.Morpeh.Graphics.Utilities
     {
         public static readonly int OBJECT_TO_WORLD_ID = Shader.PropertyToID("unity_ObjectToWorld");
         public static readonly int WORLD_TO_OBJECT_ID = Shader.PropertyToID("unity_WorldToObject");
+
+        public static readonly int LIGHTMAP_INDEX_ID = Shader.PropertyToID("unity_LightmapIndex");
+        public static readonly int LIGHTMAP_ST_ID = Shader.PropertyToID("unity_LightmapST");
         public static readonly int SPHERICAL_HARMONIC_COEFFICIENTS_ID = Shader.PropertyToID("unity_SHCoefficients");
 
         public static BatchRendererGroupContext GetBatchRendererGroupContext(World world)
@@ -85,8 +88,8 @@ namespace Scellecs.Morpeh.Graphics.Utilities
 
         public static GraphicsArchetypesContext GetGraphicsArchetypesContext(World world)
         {
-            var brgStash = world.GetStash<SharedGraphicsArchetypesContext>();
-            var enumerator = brgStash.GetEnumerator();
+            var archetypesStash = world.GetStash<SharedGraphicsArchetypesContext>();
+            var enumerator = archetypesStash.GetEnumerator();
 
             if (enumerator.MoveNext())
             {

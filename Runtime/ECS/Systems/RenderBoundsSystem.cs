@@ -26,9 +26,6 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
-            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
-
             renderBoundsStash = World.GetStash<RenderBounds>();
             worldRenderBoundsStash = World.GetStash<WorldRenderBounds>();
             localToWorldStash = World.GetStash<LocalToWorld>();
@@ -36,6 +33,9 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
+            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
+            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
+
             var allocator = World.GetUpdateAllocator();
             var threadLocalAABBs = allocator.Allocate<ThreadLocalAABB>(MAX_JOB_WORKERS, NativeArrayOptions.UninitializedMemory);
 
@@ -47,7 +47,6 @@ namespace Scellecs.Morpeh.Graphics
 
             ThreadLocalAABB.AssertCacheLineSize();
 
-            var nativeArchetypes = graphicsArchetypes.AsNative();
             var batchesIndices = brg.ExistingBatchesIndices;
             var batchInfos = brg.BatchesInfosPtr;
 
@@ -56,7 +55,7 @@ namespace Scellecs.Morpeh.Graphics
                 threadIndex = 0,
                 localAABBs = threadLocalAABBs,
                 batchesIndices = batchesIndices.GetUnsafeDataPtr(),
-                archetypes = nativeArchetypes.archetypes,
+                archetypes = graphicsArchetypes.graphicsArchetypes,
                 batchesInfos = batchInfos,
                 localToWorldStash = localToWorldStash.AsNative(),
                 renderBoundsStash = renderBoundsStash.AsNative(),

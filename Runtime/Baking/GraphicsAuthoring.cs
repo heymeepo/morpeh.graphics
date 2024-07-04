@@ -11,25 +11,29 @@ namespace Scellecs.Morpeh.Graphics.Baking
     [Icon("Packages/com.scellecs.morpeh.graphics/Editor/DefaultResources/Icons/d_Renderer@64.png")]
     public sealed class GraphicsAuthoring : EcsAuthoring
     {
-        public MeshRenderer meshRenderer;
-        public MeshFilter meshFilter;
-        public List<OverrideData> overrides;
+        [SerializeField] 
+        internal List<OverrideData> overrides;
 
         public override void Bake()
         {
-            SetComponent(new MaterialMeshManaged()
+            var meshRenderer = GetComponent<MeshRenderer>();
+            var meshFilter = GetComponent<MeshFilter>();
+
+            if (meshRenderer.sharedMaterial == null || meshFilter.sharedMesh == null)
             {
-                material = meshRenderer.sharedMaterial,
-                mesh = meshFilter.sharedMesh,
-                submeshIndex = 0
-            });
+                Debug.LogWarning($"You have not set a mesh or material in {gameObject.name} at {gameObject.scene.name} scene, the graphics data will not be added for this object!");
+                return;
+            }
+
+            var material = meshRenderer.sharedMaterial;
+            var mesh = meshFilter.sharedMesh;
 
             var filterSettings = new RenderFilterSettings()
             {
                 layer = gameObject.layer,
                 renderingLayerMask = meshRenderer.renderingLayerMask,
                 shadowCastingMode = meshRenderer.shadowCastingMode,
-                receiveShadows = meshRenderer.sharedMaterial.IsKeywordEnabled("_RECEIVE_SHADOWS_OFF") == false,
+                receiveShadows = material.IsKeywordEnabled("_RECEIVE_SHADOWS_OFF") == false,
                 motionMode = MotionVectorGenerationMode.Camera,
                 staticShadowCaster = meshRenderer.staticShadowCaster
             };
@@ -49,7 +53,7 @@ namespace Scellecs.Morpeh.Graphics.Baking
 
                 var typeId = GetComponentTypeId(componentType);
 
-                if (overrideData.type == ShaderPropertyType.Color || overrideData.type == ShaderPropertyType.Vector)
+                if (overrideData.type is ShaderPropertyType.Color or ShaderPropertyType.Vector)
                 {
                     float4 value = overrideData.value;
                     SetComoponentDataUnsafe(value, typeId);
@@ -60,12 +64,22 @@ namespace Scellecs.Morpeh.Graphics.Baking
                     SetComoponentDataUnsafe(value, typeId);
                 }
             }
-        }
 
-        private void Reset()
-        {
-            meshRenderer = GetComponent<MeshRenderer>();
-            meshFilter = GetComponent<MeshFilter>();
+            if (meshRenderer.lightmapIndex is < 65534 and >= 0 && gameObject.isStatic)
+            {
+                //if (LightmapBaking.TryGetLightmapData(meshRenderer, out var data))
+                //{
+                //    material = data.lightmappedMaterial;
+                //    SetComponent(new LightMaps() { lightmaps = data.shared });
+                //}
+            }
+
+            SetComponent(new MaterialMeshManaged()
+            {
+                material = material,
+                mesh = mesh,
+                submeshIndex = 0
+            });
         }
     }
 }

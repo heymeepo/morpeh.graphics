@@ -1,5 +1,6 @@
 ﻿using Scellecs.Morpeh.Collections;
 using Scellecs.Morpeh.Graphics.Collections;
+using Scellecs.Morpeh.Graphics.Utilities;
 using Scellecs.Morpeh.Native;
 using Scellecs.Morpeh.Transforms;
 using Scellecs.Morpeh.Workaround;
@@ -7,6 +8,7 @@ using Scellecs.Morpeh.Workaround.Utility;
 using System;
 using System.Linq;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpersNonBursted;
@@ -17,15 +19,14 @@ namespace Scellecs.Morpeh.Graphics
     /// Updates and prepares the rendering state of the current frame for further processing based on entities archetypes.
     /// Any structural changes, such as component additions/removals and entity creations/destroying, are not allowed after this system has executed.
     /// </summary>
-    public sealed class GraphicsArchetypesSystem : ICleanupSystem
+    public sealed unsafe class GraphicsArchetypesSystem : ICleanupSystem
     {
         public World World { get; set; }
 
-        private GraphicsArchetypesHandle archetypesHandle;
-        private GraphicsArchetypesContext archetypes;
-
         private IntHashMap<ArchetypeProperty> propertiesTypeIdCache;
-        private ResizableArray<UnmanagedStash> propertiesStashes;
+
+        private NativeArray<ArchetypeProperty> pinnedProperties;
+        private NativeArray<UnmanagedStash> propertiesStashes;
 
         private LongHashMap<GraphicsArchetype> graphicsArchetypes;
         private LongHashMap<Filter> graphicsArchetypesFilters;
@@ -43,6 +44,10 @@ namespace Scellecs.Morpeh.Graphics
         private int objectToWorldIndex;
         private int worldToObjectIndex;
 
+        private ulong propertiesHandle;
+        private ulong archetypesHandle;
+        private ulong indicesHandle;
+
         public void OnAwake()
         {
             allExistingGraphicsEntitiesFilter = World.Filter.Extend<GraphicsAspect>().Build();
@@ -51,10 +56,14 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
-            UpdateGraphicsArchetypesFilters();
+            ReleaseContextHandles();
+
+            UpdateExistingGraphicsArchetypes();
             GatherNewGraphicsArchetypes();
             AddNewGraphicsArchetypes();
             UpdateArchetypePropertiesStashes();
+
+            UpdateContext();
         }
 
         public void Dispose()
@@ -65,8 +74,21 @@ namespace Scellecs.Morpeh.Graphics
                 graphicsArchetype.Dispose();
             }
 
-            propertiesStashes.Dispose();
-            archetypesHandle.Dispose();
+            if (propertiesStashes.IsCreated)
+            {
+                propertiesStashes.Dispose();
+            }
+
+            ReleaseContextHandles();
+
+            UnsafeUtility.ReleaseGCObject(propertiesHandle);
+            pinnedProperties = default;
+        }
+
+        private void ReleaseContextHandles()
+        {
+            UnsafeUtility.ReleaseGCObject(archetypesHandle);
+            UnsafeUtility.ReleaseGCObject(indicesHandle);
         }
 
         private void InitializeGraphicsArchetypes()
@@ -75,18 +97,24 @@ namespace Scellecs.Morpeh.Graphics
             graphicsArchetypes = new LongHashMap<GraphicsArchetype>();
             graphicsArchetypesFilters = new LongHashMap<Filter>();
             usedGraphicsArchetypesIndices = new FastList<int>();
+
             newGraphicsArchetypes = new LongHashMap<GraphicsArchetype>();
             newGraphicsArchetypesFilters = new LongHashMap<Filter>();
             usedEcsArchetypes = new LongHashSet();
 
             AddArchetypePropertiesReflection();
+
             AddArchetypeProperty(SPHERICAL_HARMONIC_COEFFICIENTS_ID, SIZE_OF_SHCOEFFICIENTS, typeof(BuiltinMaterialPropertyUnity_SHCoefficients));
+            AddArchetypeProperty(LIGHTMAP_INDEX_ID, SIZE_OF_FLOAT4, typeof(BuiltinMaterialPropertyUnity_LightmapIndex));
+            AddArchetypeProperty(LIGHTMAP_ST_ID, SIZE_OF_FLOAT4, typeof(BuiltinMaterialPropertyUnity_LightmapST));
 
             var basePropertiesArrayLength = propertiesTypeIdCache.data.Length;
             var totalPropertiesArrayLength = basePropertiesArrayLength + 2;
 
             //Add two properties, objectToWorld and worldToObject, at the end of the internal propertiesTypeIdCache array under special indices.
-            //This won't break hashmap enumerator, and it will give us the ability to access them directly by indices inside the jobs without unnecessary checks.
+            //This won't break hashmap, because it's immutable.
+            //It will give us the ability to access them directly by indices inside the jobs without unnecessary checks.
+
             Array.Resize(ref propertiesTypeIdCache.data, totalPropertiesArrayLength);
 
             objectToWorldIndex = totalPropertiesArrayLength - 2;
@@ -107,20 +135,14 @@ namespace Scellecs.Morpeh.Graphics
             };
 
             newArchetypeIncludeExcludeBuffer = new int[basePropertiesArrayLength];
-            propertiesStashes = new ResizableArray<UnmanagedStash>(totalPropertiesArrayLength);
 
-            archetypesHandle = new GraphicsArchetypesHandle()
-            {
-                propertiesTypeIdCache = propertiesTypeIdCache,
-                propertiesStashes = propertiesStashes,
-                graphicsArchetypes = graphicsArchetypes,
-                usedGraphicsArchetypesIndices = usedGraphicsArchetypesIndices,
-                propertiesCount = propertiesTypeIdCache.length + 2
-            };
+            propertiesStashes = new NativeArray<UnmanagedStash>(totalPropertiesArrayLength, Allocator.Persistent);
+            pinnedProperties = UnsafeHelpers.PinGCArrayAndConvert<ArchetypeProperty>(propertiesTypeIdCache.data, totalPropertiesArrayLength, out propertiesHandle);
 
-            archetypes = new GraphicsArchetypesContext(archetypesHandle);
             graphicsArchetypesStash = World.GetStash<SharedGraphicsArchetypesContext>();
-            graphicsArchetypesStash.Set(World.CreateEntity(), new SharedGraphicsArchetypesContext() { graphicsArchetypes = archetypes });
+            graphicsArchetypesStash.Add(World.CreateEntity());
+
+            UpdateContext();
         }
 
         private void AddArchetypePropertiesReflection()
@@ -156,7 +178,7 @@ namespace Scellecs.Morpeh.Graphics
             propertiesTypeIdCache.Add(typeId, property, out _);
         }
 
-        private void UpdateGraphicsArchetypesFilters()
+        private void UpdateExistingGraphicsArchetypes()
         {
             usedEcsArchetypes.Clear();
             usedGraphicsArchetypesIndices.Clear();
@@ -168,7 +190,7 @@ namespace Scellecs.Morpeh.Graphics
                 if (filter.IsNotEmpty())
                 {
                     ref var archetype = ref graphicsArchetypes.GetValueRefByIndex(idx);
-                    archetype.entities = filter.AsNative();
+                    archetype.entities = filter.AsNative(); //TODO: Use own filter with pinned array of chunks instead NativeFastList
                     usedGraphicsArchetypesIndices.Add(idx);
 
                     var info = FilterWorkaroundExtensions.GetInternalFilterInfo(filter);
@@ -233,19 +255,26 @@ namespace Scellecs.Morpeh.Graphics
 
             var counter = 2;
             var filterBuilder = World.Filter.Extend<GraphicsAspect>();
+            var isLightMapped = false;
 
             foreach (var idx in propertiesTypeIdCache)
             {
                 ref var property = ref propertiesTypeIdCache.GetValueRefByIndex(idx);
+                var componentTypeId = property.componentTypeId;
 
                 if (includeBuffer[idx] > 0)
                 {
-                    filterBuilder = filterBuilder.With(property.componentTypeId);
+                    filterBuilder = filterBuilder.With(componentTypeId);
                     properties[counter++] = idx;
+
+                    if (property.shaderId == LIGHTMAP_INDEX_ID)
+                    {
+                        isLightMapped = true;
+                    }
                 }
                 else
                 {
-                    filterBuilder = filterBuilder.Without(property.componentTypeId);
+                    filterBuilder = filterBuilder.Without(componentTypeId);
                 }
             }
 
@@ -264,7 +293,7 @@ namespace Scellecs.Morpeh.Graphics
 
             for (int i = 1; i < propertiesCount; i++)
             {
-                int sizeBytesComponent = Align16Bytes(propertiesTypeIdCache.GetValueByIndex(properties[i - 1]).size * maxEntitiesPerBatch);
+                int sizeBytesComponent = Align16Bytes(propertiesTypeIdCache.GetValueRefByIndex(properties[i - 1]).size * maxEntitiesPerBatch);
                 overrideStream[i] = overrideStream[i - 1] + sizeBytesComponent;
             }
 
@@ -274,6 +303,7 @@ namespace Scellecs.Morpeh.Graphics
                 sourceMetadataStream = overrideStream,
                 batchesIndices = new NativeList<int>(4, Allocator.Persistent),
                 maxEntitiesPerBatch = maxEntitiesPerBatch,
+                isLightMapped = isLightMapped,
                 hash = graphicsArchetypeHash,
             };
 
@@ -314,6 +344,30 @@ namespace Scellecs.Morpeh.Graphics
 
             var objectToWorldTypeId = propertiesTypeIdCache.data[objectToWorldIndex].componentTypeId;
             propertiesStashes[objectToWorldIndex] = World.CreateUnmanagedStashDangerous(objectToWorldTypeId);
+        }
+
+        private void UpdateContext()
+        {
+            ref var shared = ref GetSharedContext();
+            var indicesArray = UnsafeHelpers.PinGCArrayAndConvert<int>(usedGraphicsArchetypesIndices.data, usedGraphicsArchetypesIndices.length, out indicesHandle);
+            var graphicsArchetypesPtr = (GraphicsArchetype*)UnsafeUtility.PinGCArrayAndGetDataAddress(graphicsArchetypes.data, out archetypesHandle);
+
+            shared.graphicsArchetypes = new GraphicsArchetypesContext(pinnedProperties, propertiesStashes, indicesArray, graphicsArchetypesPtr);
+        }
+
+        private ref SharedGraphicsArchetypesContext GetSharedContext()
+        {
+            var enumerator = graphicsArchetypesStash.GetEnumerator();
+            var exists = enumerator.MoveNext();
+
+            if (exists)
+            {
+                return ref enumerator.Current;
+            }
+            else
+            {
+                throw new NullReferenceException("SharedGraphicsArchetypesContext was not found during the execution of the GraphicsArchetypesSystem, the graphics state is corrupted.");
+            }
         }
     }
 }

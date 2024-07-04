@@ -273,7 +273,7 @@ namespace Scellecs.Morpeh.Graphics
                 dstOffset = (uint)offsetInBytes,
                 dstOffsetExtra = (uint)offsetInverse,
                 size = (uint)size,
-                count = 1,
+                count = 1
             };
 
             UnsafeUtility.MemCpy(dst + operationOffset, &op, opsize);

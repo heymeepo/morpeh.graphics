@@ -41,17 +41,17 @@ namespace Scellecs.Morpeh.Graphics.Culling
             ref var batchInfo = ref batchesInfos[batchIndex];
             ref var archetype = ref archetypes[batchInfo.archetypeIndex];
 
+            if (archetype.isLightMapped && cullLightmapShadowCasters)
+            {
+                return;
+            }
+
             var batchBounds = batchInfo.batchAABB;
             var allocator = threadLocalAllocator.ThreadAllocator(threadIndex);
 
             var batchFilterOffset = archetype.maxEntitiesPerBatch * batchInfo.archetypeInternalIndex;
             var batchEntitiesCount = math.min(archetype.entities.length - batchFilterOffset, archetype.maxEntitiesPerBatch);
             var batchChunks128Count = (int)math.ceil((float)batchEntitiesCount / 128);
-
-            // Filter out entities that affect lightmap if the cull lighmap shadow casters flag is set
-            //bool isLightMapped = chunk.GetSharedComponentIndex(LightMaps) >= 0;
-            //if (isLightMapped && CullLightmapShadowCasters)
-            //    return;
 
             bool isLightCulling = cullingViewType == BatchCullingViewType.Light;
             var visibilityItemWriter = visibilityItems.List->AsParallelWriter();

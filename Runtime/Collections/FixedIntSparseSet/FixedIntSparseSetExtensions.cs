@@ -1,10 +1,10 @@
 ﻿namespace Scellecs.Morpeh.Graphics.Collections
 {
-    internal static unsafe class IntSparseSetExtensions
+    internal static unsafe class FixedIntSparseSetExtensions
     {
-        public static int* GetUnsafeDataPtr(this IntSparseSetFixed set) => set.dense.ptr;
+        public static int* GetUnsafeDataPtr(this FixedIntSparseSet set) => set.dense.ptr;
 
-        public static NativeIntSparseSet AsNative(this IntSparseSetFixed set)
+        public static NativeIntSparseSet AsNative(this FixedIntSparseSet set)
         {
             return new NativeIntSparseSet()
             {

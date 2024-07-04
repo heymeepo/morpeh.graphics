@@ -13,7 +13,7 @@ namespace Scellecs.Morpeh.Graphics
     internal unsafe sealed class BatchRendererGroupContext : IDisposable
     {
         public SparseBuffer Buffer { get; private set; }
-        public IntSparseSetFixed ExistingBatchesIndices => existingBatchesIndices; //TODO: return as ReadOnly
+        public FixedIntSparseSet ExistingBatchesIndices => existingBatchesIndices; //TODO: return as ReadOnly
         public BatchFilterSettings* BatchFilterSettingsPtr => batchFilterSettings.GetUnsafeDataPtr();
         public BatchInfo* BatchesInfosPtr => batchesInfos.GetUnsafePtr();
 
@@ -22,7 +22,7 @@ namespace Scellecs.Morpeh.Graphics
 
         private ResizableArray<BatchInfo> batchesInfos;
         private IntHashMap<BatchFilterSettings> batchFilterSettings;
-        private IntSparseSetFixed existingBatchesIndices;
+        private FixedIntSparseSet existingBatchesIndices;
 
         private BatchRendererGroup.OnPerformCulling cullingCallback;
 
@@ -32,7 +32,7 @@ namespace Scellecs.Morpeh.Graphics
             Buffer = new SparseBuffer(bufferArgs);
             batchesInfos = new ResizableArray<BatchInfo>();
             batchFilterSettings = new IntHashMap<BatchFilterSettings>();
-            existingBatchesIndices = new IntSparseSetFixed(maxBatchesCount);
+            existingBatchesIndices = new FixedIntSparseSet(maxBatchesCount);
             threadedBatchContext = brg.GetThreadedBatchContext();
         }
 

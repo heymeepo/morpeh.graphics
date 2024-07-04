@@ -7,7 +7,7 @@ using static Scellecs.Morpeh.Graphics.Utilities.BrgHelpers;
 
 namespace Scellecs.Morpeh.Graphics
 {
-    public sealed class BatchesUpdateSystem : ICleanupSystem
+    public sealed unsafe class BatchesUpdateSystem : ICleanupSystem
     {
         public World World { get; set; }
 
@@ -19,13 +19,17 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnAwake()
         {
-            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
-            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
             batchCreateInfos = new FastList<BatchCreateInfo>();
             unreferencedBatchesIndices = new BitMap();
         }
 
-        public void OnUpdate(float deltaTime) => UpdateBatches();
+        public void OnUpdate(float deltaTime)
+        {
+            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
+            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
+
+            UpdateBatches();
+        }
 
         public void Dispose() { }
 
@@ -35,16 +39,16 @@ namespace Scellecs.Morpeh.Graphics
             batchCreateInfos.Clear();
 
             var existingBatchesIndices = brg.ExistingBatchesIndices;
-            var archetypesIndices = graphicsArchetypes.GetUsedGraphicsArchetypesIndices();
+            var archetypesIndices = graphicsArchetypes.usedGraphicsArchetypesIndices;
 
             foreach (var batchIndex in existingBatchesIndices)
             {
                 unreferencedBatchesIndices.Set(batchIndex);
             }
 
-            foreach (var graphicsArchetypeIndex in archetypesIndices)
+            for (int i = 0; i < archetypesIndices.Length; i++)
             {
-                ref var graphicsArchetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(graphicsArchetypeIndex);
+                ref var graphicsArchetype = ref graphicsArchetypes.graphicsArchetypes[archetypesIndices[i]];
 
                 var expectedBatchesCount = graphicsArchetype.ExpectedBatchesCount();
                 var actualBatchesCount = graphicsArchetype.ActualBatchesCount();
@@ -54,7 +58,7 @@ namespace Scellecs.Morpeh.Graphics
                 {
                     var batchCreate = new BatchCreateInfo()
                     {
-                        archetypeIndex = graphicsArchetypeIndex,
+                        archetypeIndex = i,
                         batchesCount = diff
                     };
 
@@ -63,12 +67,40 @@ namespace Scellecs.Morpeh.Graphics
 
                 if (actualBatchesCount > 0)
                 {
-                    for (int i = 0; i < actualBatchesCount; i++)
+                    for (int j = 0; j < actualBatchesCount; j++)
                     {
-                        unreferencedBatchesIndices.Unset(graphicsArchetype.batchesIndices[i]);
+                        unreferencedBatchesIndices.Unset(graphicsArchetype.batchesIndices[j]);
                     }
                 }
             }
+
+            //foreach (var graphicsArchetypeIndex in archetypesIndices)
+            //{
+            //    ref var graphicsArchetype = ref graphicsArchetypes.graphicsArchetypes[graphicsArchetypeIndex];
+
+            //    var expectedBatchesCount = graphicsArchetype.ExpectedBatchesCount();
+            //    var actualBatchesCount = graphicsArchetype.ActualBatchesCount();
+            //    var diff = expectedBatchesCount - actualBatchesCount;
+
+            //    if (diff > 0)
+            //    {
+            //        var batchCreate = new BatchCreateInfo()
+            //        {
+            //            archetypeIndex = graphicsArchetypeIndex,
+            //            batchesCount = diff
+            //        };
+
+            //        batchCreateInfos.Add(batchCreate);
+            //    }
+
+            //    if (actualBatchesCount > 0)
+            //    {
+            //        for (int i = 0; i < actualBatchesCount; i++)
+            //        {
+            //            unreferencedBatchesIndices.Unset(graphicsArchetype.batchesIndices[i]);
+            //        }
+            //    }
+            //}
 
             RemoveUnreferencedBatches();
             AddBatches();
@@ -89,7 +121,7 @@ namespace Scellecs.Morpeh.Graphics
             var batchInfo = batchInfos[batchIndex];
 
             var archetypeIndex = batchInfo.archetypeIndex;
-            ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(batchInfo.archetypeIndex);
+            ref var archetype = ref graphicsArchetypes.graphicsArchetypes[batchInfo.archetypeIndex];
 
             archetype.batchesIndices.RemoveAt(archetype.batchesIndices.Length - 1);
             brg.RemoveBatch(IntAsBatchID(batchIndex));
@@ -105,7 +137,7 @@ namespace Scellecs.Morpeh.Graphics
             for (int i = 0; i < batchCreateInfos.length; i++)
             {
                 var info = batchCreateInfos.data[i];
-                ref var archetype = ref graphicsArchetypes.GetGraphicsArchetypeByIndex(info.archetypeIndex);
+                ref var archetype = ref graphicsArchetypes.graphicsArchetypes[info.archetypeIndex];
 
                 for (int j = 0; j < info.batchesCount; j++)
                 {
@@ -129,7 +161,7 @@ namespace Scellecs.Morpeh.Graphics
             for (int i = 0; i < archetype.propertiesIndices.Length; i++)
             {
                 int gpuAddress = batchBegin + overrideStream[i];
-                ref var property = ref graphicsArchetypes.GetArchetypePropertyByIndex(overrides[i]);
+                var property = graphicsArchetypes.properties[overrides[i]];
 
                 metadata[i] = new MetadataValue
                 {

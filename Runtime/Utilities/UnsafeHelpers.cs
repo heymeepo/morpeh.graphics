@@ -20,5 +20,15 @@ namespace Scellecs.Morpeh.Graphics.Utilities
         {
             UnsafeUtility.Free(ptr, allocator);
         }
+
+        public static NativeArray<T> PinGCArrayAndConvert<T>(Array array, int length, out ulong handle) where T : struct
+        {
+            var ptr = UnsafeUtility.PinGCArrayAndGetDataAddress(array, out handle);
+            var nativeArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(ptr, length, Allocator.None);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref nativeArray, AtomicSafetyHandle.Create());
+#endif
+            return nativeArray;
+        }
     }
 }

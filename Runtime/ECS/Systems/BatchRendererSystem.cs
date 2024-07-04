@@ -5,7 +5,6 @@ using Scellecs.Morpeh.Native;
 using Scellecs.Morpeh.Workaround;
 using Scellecs.Morpeh.Workaround.WorldAllocator;
 using System;
-using System.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -56,6 +55,10 @@ namespace Scellecs.Morpeh.Graphics
         {
             CompleteAndResetDependencies();
             threadAllocator.Rewind();
+
+            brg = BrgHelpersNonBursted.GetBatchRendererGroupContext(World);
+            graphicsArchetypes = BrgHelpersNonBursted.GetGraphicsArchetypesContext(World);
+
             ExecuteGpuUploads();
         }
 
@@ -76,20 +79,18 @@ namespace Scellecs.Morpeh.Graphics
             }
 
             var allocator = World.GetUpdateAllocator();
-            var totalOverridesCount = graphicsArchetypes.GetTotalArchetypePropertiesCount();
+            var totalOverridesCount = graphicsArchetypes.properties.Length;
 
             var maximumGpuUploads = batchesCount * totalOverridesCount;
             var gpuUploadOperations = allocator.AllocateNativeArray<GpuUploadOperation>(maximumGpuUploads, NativeArrayOptions.UninitializedMemory);
             var numGpuUploads = new NativeReference<int>(Allocator.TempJob);
 
-            var nativeArchetypes = graphicsArchetypes.AsNative();
-
             new SetupGpuUploadOperationsJob()
             {
                 batchesIndices = existingBatches.GetUnsafeDataPtr(),
-                archetypes = nativeArchetypes.archetypes,
-                properties = nativeArchetypes.properties,
-                propertiesStashes = nativeArchetypes.propertiesStashes,
+                archetypes = graphicsArchetypes.graphicsArchetypes,
+                properties = (ArchetypeProperty*)graphicsArchetypes.properties.GetUnsafePtr(),
+                propertiesStashes = (UnmanagedStash*)graphicsArchetypes.propertiesStashes.GetUnsafePtr(),
                 batchesInfos = brg.BatchesInfosPtr,
                 numGpuUploadOperations = numGpuUploads.GetUnsafePtr(),
                 gpuUploadOperations = gpuUploadOperations
@@ -124,7 +125,7 @@ namespace Scellecs.Morpeh.Graphics
 
             var uploadHeaderHandle = uploadHeader ? new UploadBufferHeaderJob()
             {
-                uploadDescriptor = bufferHeaderBlitDescriptor,
+                uploadBlitDescriptor = bufferHeaderBlitDescriptor,
                 threadedSparseUploader = threadedBufferUploader
             }
             .Schedule() : default;
@@ -149,50 +150,6 @@ namespace Scellecs.Morpeh.Graphics
 
         private void DidScheduleCullingJob(JobHandle job) => cullingJobDependency = JobHandle.CombineDependencies(job, cullingJobDependency);
 
-        private void DebugDrawCommands(JobHandle drawCommandsDependency, BatchCullingOutput cullingOutput)
-        {
-            drawCommandsDependency.Complete();
-
-            var drawCommands = cullingOutput.drawCommands[0];
-
-            Debug.Log($"Draw Command summary: visibleInstanceCount: {drawCommands.visibleInstanceCount} drawCommandCount: {drawCommands.drawCommandCount} drawRangeCount: {drawCommands.drawRangeCount}");
-
-#if DEBUG_LOG_DRAW_COMMANDS_VERBOSE
-            bool verbose = true;
-#else
-            bool verbose = false;
-#endif
-            if (verbose)
-            {
-                for (int i = 0; i < drawCommands.drawCommandCount; ++i)
-                {
-                    var cmd = drawCommands.drawCommands[i];
-                    DrawCommandSettings settings = new DrawCommandSettings
-                    {
-                        BatchID = cmd.batchID,
-                        MaterialID = cmd.materialID,
-                        MeshID = cmd.meshID,
-                        SubMeshIndex = cmd.submeshIndex,
-                        Flags = cmd.flags,
-                    };
-                    Debug.Log($"Draw Command #{i}: {settings} visibleOffset: {cmd.visibleOffset} visibleCount: {cmd.visibleCount}");
-                    StringBuilder sb = new StringBuilder((int)cmd.visibleCount * 30);
-                    bool hasSortingPosition = settings.HasSortingPosition;
-                    for (int j = 0; j < cmd.visibleCount; ++j)
-                    {
-                        sb.Append(drawCommands.visibleInstances[cmd.visibleOffset + j]);
-                        if (hasSortingPosition)
-                            sb.AppendFormat(" ({0:F3} {1:F3} {2:F3})",
-                                drawCommands.instanceSortingPositions[cmd.sortingPosition + 0],
-                                drawCommands.instanceSortingPositions[cmd.sortingPosition + 1],
-                                drawCommands.instanceSortingPositions[cmd.sortingPosition + 2]);
-                        sb.Append(", ");
-                    }
-                    Debug.Log($"Draw Command #{i} instances: [{sb}]");
-                }
-            }
-        }
-
         private JobHandle OnPerformCulling(
             BatchRendererGroup rendererGroup,
             BatchCullingContext cullingContext,
@@ -207,7 +164,6 @@ namespace Scellecs.Morpeh.Graphics
                 return cullingJobDependency;
             }
 
-            var nativeArchetypes = graphicsArchetypes.AsNative();
             var maxVisibilityItemsCount = (int)math.ceil((float)batchesCount * MAX_INSTANCES_PER_BATCH / 128);
             var visibilityItems = new IndirectList<BatchVisibilityItem>(maxVisibilityItemsCount, threadAllocator.GeneralAllocator);
             var cullLightmapShadowCasters = (cullingContext.cullingFlags & BatchCullingFlags.CullLightmappedShadowCasters) != 0;
@@ -217,7 +173,7 @@ namespace Scellecs.Morpeh.Graphics
                 threadIndex = 0,
                 batchesIndices = existingBatches.GetUnsafeDataPtr(),
                 batchesInfos = brg.BatchesInfosPtr,
-                archetypes = nativeArchetypes.archetypes,
+                archetypes = graphicsArchetypes.graphicsArchetypes,
                 boundsStash = boundsStash.AsNative(),
                 visibilityItems = visibilityItems,
                 threadLocalAllocator = threadAllocator,
@@ -235,7 +191,7 @@ namespace Scellecs.Morpeh.Graphics
             {
                 batchFilterSettings = brg.BatchFilterSettingsPtr,
                 batchesInfos = brg.BatchesInfosPtr,
-                archetypes = nativeArchetypes.archetypes,
+                archetypes = graphicsArchetypes.graphicsArchetypes,
                 visibilityItems = visibilityItems,
                 filterSettingsIndices = filterSettingsIndicesStash.AsNative(),
                 materialMeshInfos = materialMeshInfosStash.AsNative(),
@@ -322,8 +278,6 @@ namespace Scellecs.Morpeh.Graphics
                 generateDrawCommandsDependency,
                 generateDrawRangesDependency);
 
-            //DebugDrawCommands(expansionDependency, cullingOutput);
-
             cullingJobReleaseDependency = JobHandle.CombineDependencies(cullingJobReleaseDependency, drawCommandOutput.Dispose(expansionDependency));
 
             DidScheduleCullingJob(emitDrawCommandsDependency);
@@ -365,6 +319,8 @@ namespace Scellecs.Morpeh.Graphics
             var batchFilterOffset = archetype.maxEntitiesPerBatch * batchInfo.archetypeInternalIndex;
             var batchEntitiesCount = math.min(archetype.entities.length - batchFilterOffset, archetype.maxEntitiesPerBatch);
             var batchBegin = (int)batchInfo.batchGpuAllocation.begin;
+
+            //ObjectToWorld and WorldToObject properties are always at 0 and 1 indices in any archetype
 
             var propertyIndex = archetype.propertiesIndices[0];
             var dstOffset = batchBegin;
@@ -444,12 +400,12 @@ namespace Scellecs.Morpeh.Graphics
     internal unsafe struct UploadBufferHeaderJob : IJob
     {
         [ReadOnly]
-        public ValueBlitDescriptor uploadDescriptor;
+        public ValueBlitDescriptor uploadBlitDescriptor;
         public ThreadedSparseUploader threadedSparseUploader;
 
         public void Execute()
         {
-            var blit = uploadDescriptor;
+            var blit = uploadBlitDescriptor;
             threadedSparseUploader.AddUpload(&blit.value, (int)blit.valueSizeBytes, (int)blit.destinationOffset, (int)blit.count);
         }
     }

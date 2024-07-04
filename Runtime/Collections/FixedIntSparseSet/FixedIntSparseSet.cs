@@ -5,14 +5,14 @@ using Unity.IL2CPP.CompilerServices;
 
 namespace Scellecs.Morpeh.Graphics.Collections
 {
-    internal unsafe sealed class IntSparseSetFixed : IDisposable
+    internal unsafe sealed class FixedIntSparseSet : IDisposable
     {
         internal IntPinnedArray sparse;
         internal IntPinnedArray dense;
 
         internal int count;
 
-        public IntSparseSetFixed(int maxSize)
+        public FixedIntSparseSet(int maxSize)
         {
             this.sparse = new IntPinnedArray(maxSize);
             this.dense = new IntPinnedArray(maxSize);

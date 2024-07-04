@@ -22,7 +22,7 @@ namespace Scellecs.Morpeh.Graphics
         [NativeDisableUnsafePtrRestriction]
         public GraphicsArchetype* archetypes;
 
-        [ReadOnly] 
+        [ReadOnly]
         public IndirectList<BatchVisibilityItem> visibilityItems;
 
         [ReadOnly]
@@ -53,7 +53,6 @@ namespace Scellecs.Morpeh.Graphics
             var filter = archetype.entities;
 
             //bool isDepthSorted = chunk.Has(ref DepthSorted);
-            //bool isLightMapped = chunk.GetSharedComponentIndex(LightMaps) >= 0;
 
             for (int j = 0; j < 2; j++)
             {
@@ -84,6 +83,9 @@ namespace Scellecs.Morpeh.Graphics
 
                     BatchDrawCommandFlags drawCommandFlags = 0;
 
+                    if (archetype.isLightMapped)
+                        drawCommandFlags |= BatchDrawCommandFlags.IsLightMapped;
+
                     //if (flipWinding)
                     //    drawCommandFlags |= BatchDrawCommandFlags.FlipWinding;
 
@@ -112,8 +114,7 @@ namespace Scellecs.Morpeh.Graphics
         private void EmitDrawCommand(in DrawCommandSettings settings, int entityQword, int entityBit, int chunkStartIndex/*, NativeArray<LocalToWorld> localToWorlds*/)
         {
             //Expand LocalToWorld hashmap into an array in the RenderBoundsSystem with threaded rewindable allocator for each index in the NativeFilter?
-            //Do the same for WorldRenderBonds instead of components usage?
-            //Alternatively some rework in the ExpandVisibleInstancesJob
+            //Some rework in the ExpandVisibleInstancesJob?
 
             // Depth sorted draws are emitted with access to entity transforms,
             // so they can also be written out for sorting
@@ -124,7 +125,7 @@ namespace Scellecs.Morpeh.Graphics
             //}
             //else
             //{
-                drawCommandOutput.Emit(settings, entityQword, entityBit, chunkStartIndex);
+            drawCommandOutput.Emit(settings, entityQword, entityBit, chunkStartIndex);
             //}
         }
     }
