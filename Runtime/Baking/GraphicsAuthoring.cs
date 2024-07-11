@@ -2,7 +2,6 @@
 using Scellecs.Morpeh.EntityConverter;
 using System.Collections.Generic;
 using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 

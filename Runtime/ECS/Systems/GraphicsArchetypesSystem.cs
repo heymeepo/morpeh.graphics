@@ -30,7 +30,7 @@ namespace Scellecs.Morpeh.Graphics
 
         private LongHashMap<GraphicsArchetype> graphicsArchetypes;
         private LongHashMap<Filter> graphicsArchetypesFilters;
-        private FastList<int> usedGraphicsArchetypesIndices;
+        private NativeList<int> usedGraphicsArchetypesIndices;
 
         private LongHashMap<GraphicsArchetype> newGraphicsArchetypes;
         private LongHashMap<Filter> newGraphicsArchetypesFilters;
@@ -46,7 +46,6 @@ namespace Scellecs.Morpeh.Graphics
 
         private ulong propertiesHandle;
         private ulong archetypesHandle;
-        private ulong indicesHandle;
 
         public void OnAwake()
         {
@@ -56,7 +55,7 @@ namespace Scellecs.Morpeh.Graphics
 
         public void OnUpdate(float deltaTime)
         {
-            ReleaseContextHandles();
+            UnsafeUtility.ReleaseGCObject(archetypesHandle);
 
             UpdateExistingGraphicsArchetypes();
             GatherNewGraphicsArchetypes();
@@ -79,16 +78,14 @@ namespace Scellecs.Morpeh.Graphics
                 propertiesStashes.Dispose();
             }
 
-            ReleaseContextHandles();
+            if (usedGraphicsArchetypesIndices.IsCreated)
+            {
+                usedGraphicsArchetypesIndices.Dispose(default);
+            }
 
+            UnsafeUtility.ReleaseGCObject(archetypesHandle);
             UnsafeUtility.ReleaseGCObject(propertiesHandle);
             pinnedProperties = default;
-        }
-
-        private void ReleaseContextHandles()
-        {
-            UnsafeUtility.ReleaseGCObject(archetypesHandle);
-            UnsafeUtility.ReleaseGCObject(indicesHandle);
         }
 
         private void InitializeGraphicsArchetypes()
@@ -96,7 +93,7 @@ namespace Scellecs.Morpeh.Graphics
             propertiesTypeIdCache = new IntHashMap<ArchetypeProperty>();
             graphicsArchetypes = new LongHashMap<GraphicsArchetype>();
             graphicsArchetypesFilters = new LongHashMap<Filter>();
-            usedGraphicsArchetypesIndices = new FastList<int>();
+            usedGraphicsArchetypesIndices = new NativeList<int>(Allocator.Persistent);
 
             newGraphicsArchetypes = new LongHashMap<GraphicsArchetype>();
             newGraphicsArchetypesFilters = new LongHashMap<Filter>();
@@ -349,7 +346,7 @@ namespace Scellecs.Morpeh.Graphics
         private void UpdateContext()
         {
             ref var shared = ref GetSharedContext();
-            var indicesArray = UnsafeHelpers.PinGCArrayAndConvert<int>(usedGraphicsArchetypesIndices.data, usedGraphicsArchetypesIndices.length, out indicesHandle);
+            var indicesArray = usedGraphicsArchetypesIndices.AsArray();
             var graphicsArchetypesPtr = (GraphicsArchetype*)UnsafeUtility.PinGCArrayAndGetDataAddress(graphicsArchetypes.data, out archetypesHandle);
 
             shared.graphicsArchetypes = new GraphicsArchetypesContext(pinnedProperties, propertiesStashes, indicesArray, graphicsArchetypesPtr);

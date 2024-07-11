@@ -113,9 +113,7 @@ namespace Scellecs.Morpeh.Graphics
                 uploadRequirements += SparseBufferUploadRequirements.ComputeUploadSizeRequirements(bufferHeaderBlitDescriptor);
             }
 
-            var brgBuffer = brg.Buffer;
-            var threadedBufferUploader = brgBuffer.Begin(uploadRequirements, out bool bufferResized);
-
+            var threadedBufferUploader = brg.Buffer.Begin(uploadRequirements, out bool bufferResized);
             var uploadGpuOperationsHandle = new ExecuteGpuUploadOperationsJob()
             {
                 gpuUploadOperations = gpuUploadOperations,
@@ -137,7 +135,7 @@ namespace Scellecs.Morpeh.Graphics
 
             numGpuUploads.Dispose(default);
             JobHandle.CombineDependencies(uploadHeaderHandle, uploadGpuOperationsHandle).Complete();
-            brgBuffer.EndAndCommit();
+            brg.Buffer.EndAndCommit();
         }
 
         private void CompleteAndResetDependencies()
