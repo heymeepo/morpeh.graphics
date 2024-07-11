@@ -86,7 +86,6 @@ To render your first entity, you just need to add this 3 components to it:
 
 > [!IMPORTANT]
 > The ``MaterialMeshManaged`` and ``RenderFilterSettings`` components are removed from entities after the execution of ``MaterialMeshSystem`` and ``BatchFilterSettingsSystem``, and are replaced with the internal ``MaterialMeshInfo`` and ``RenderFilterSettingsIndex`` components.
-
 > It's also worth noting that ``MaterialMeshInfo`` is ``ICleanupComponent`` (you can find more details in the documentation for the transforms package). This means that if you delete an entity that was involved in rendering, it will remain alive until MaterialMeshSystem is executed.
 
 You can always change in runtime the the mesh and material, as well as the render filter settings, by adding the ``MaterialMeshManaged`` and ``RenderFilterSettings`` components again with the new data.
