@@ -2,6 +2,7 @@
 using Scellecs.Morpeh.EntityConverter;
 using System.Collections.Generic;
 using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -47,7 +48,13 @@ namespace Scellecs.Morpeh.Graphics.Baking
             {
                 if (MaterialOverriesMap.TryGetOverrideType(overrideData.name, out var componentType) == false)
                 {
-                    Debug.LogWarning($"There is no material property override component found for {overrideData.name} in {gameObject.name}. It should be ignored");
+                    Debug.LogWarning($"There is no material property override component found for {overrideData.name} in {gameObject.name} at {gameObject.scene.name} scene. It should be ignored");
+                    continue;
+                }
+
+                if (material.HasProperty(overrideData.name) == false)
+                {
+                    Debug.LogWarning($"The shader is not compatible with the property {overrideData.name} in {gameObject.name} at {gameObject.scene.name} scene. It should be ignored.");
                     continue;
                 }
 
@@ -67,11 +74,9 @@ namespace Scellecs.Morpeh.Graphics.Baking
 
             if (meshRenderer.lightmapIndex is < 65534 and >= 0 && gameObject.isStatic)
             {
-                //if (LightmapBaking.TryGetLightmapData(meshRenderer, out var data))
-                //{
-                //    material = data.lightmappedMaterial;
-                //    SetComponent(new LightMaps() { lightmaps = data.shared });
-                //}
+                var lightmapData = LightmapBaking.GetLightmapData(meshRenderer);
+                material = lightmapData.lightmappedMaterial;
+                SetComponent(new LightMaps() { lightmaps = lightmapData.shared });
             }
 
             SetComponent(new MaterialMeshManaged()

@@ -8,6 +8,6 @@ namespace Scellecs.Morpeh.Graphics
     [Il2CppSetOption(Option.DivideByZeroChecks, false)]
     public struct LightMaps : IComponent
     {
-        //public SceneLightmapsSharedDataAsset lightmaps;
+        public SceneLightmapsSharedDataAsset lightmaps;
     }
 }

@@ -158,10 +158,10 @@ namespace Scellecs.Morpeh.Graphics.Editor
 
         private void OnDestroy()
         {
-            if (target == null
-                && targetGameObject != null
-                && targetGameObject.GetComponent<GraphicsAuthoring>() == null
-                && Application.isPlaying == false)
+            if (target == null && 
+                targetGameObject != null && 
+                targetGameObject.GetComponent<GraphicsAuthoring>() == null && 
+                Application.isPlaying == false)
             {
                 DestroyImmediate(meshRenderer);
                 DestroyImmediate(meshFilter);

@@ -1,139 +1,92 @@
-﻿//#if UNITY_EDITOR
-//using UnityEditor;
-//#endif
+﻿#if UNITY_EDITOR
+using UnityEngine.Experimental.Rendering;
+using UnityEngine;
+using Scellecs.Morpeh.EntityConverter.Utilities;
+using System.Collections.Generic;
+using System;
+using System.Linq;
 
-//using UnityEngine;
-//using System.Collections.Generic;
-//using System;
+namespace Scellecs.Morpeh.Graphics
+{
+    internal sealed class SceneLightmapsAsset : ScriptableObject, ISceneAsset
+    {
+        [field: SerializeField]
+        public string SceneGuid { get; set; }
 
-//namespace Scellecs.Morpeh.Graphics
-//{
-//    using EntityConverter = EntityConverter.EntityConverter;
+        [SerializeField]
+        internal SceneLightmapsSharedDataAsset sharedData;
 
-//#if UNITY_EDITOR
-//    internal class LightmapBaking : AssetPostprocessor
-//    {
-//        private static EntityConverter converter;
-//        //private static Dictionary<string, SceneLightmapsAsset> lightmapsPerSceneCache = new Dictionary<string, SceneLightmapsAsset>();
+        [SerializeField]
+        private List<Renderer> renderers;
 
-//        private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, bool didDomainReload)
-//        {
-//            if (didDomainReload)
-//            {
-                 
-//            }
-//        }
+        internal Material GetMaterialForRenderer(Renderer renderer)
+        {
+            ValidateRenderers();
 
-//        //public static bool TryGetLightmapData(Renderer renderer, out LightmapData data)
-//        //{
-//        //    var scene = EditorSceneManager.GetActiveScene();
-//        //    var guid = AssetDatabase.GUIDFromAssetPath(scene.path).ToString();
 
-//        //    if (lightmapsPerSceneCache.TryGetValue(guid, out var lightmapsAsset))
-//        //    {
 
-//        //    }
+            return null;
+        }
 
-//        //    data = default;
-//        //    return true;
-//        //}
+        private void ValidateRenderers()
+        {
+            for (int i = renderers.Count; i >= 0; i--)
+            {
+                if (renderers[i] == null)
+                {
 
-//        //private static void Reload()
-//        //{
-//        //    database = EntityConverterDatabase.GetInstance();
-//        //    lightmapsPerSceneCache.Clear();
+                }
+            }
+        }
 
-//        //    if (database != null)
-//        //    {
-//        //        var guids = AssetDatabase.FindAssets("t:SceneLightmapsAsset");
+        /// <summary>
+        /// Converts a provided list of Texture2Ds into a Texture2DArray.
+        /// </summary>
+        /// <param name="source">A list of Texture2Ds.</param>
+        /// <returns>Returns a Texture2DArray that contains the list of Texture2Ds.</returns>
+        private static Texture2DArray CopyToTextureArray(List<Texture2D> source)
+        {
+            if (source == null || !source.Any())
+                return null;
 
-//        //        foreach (string guid in guids)
-//        //        {
-//        //            var asset = AssetDatabaseUtils.LoadAssetFromGUID<SceneLightmapsAsset>(guid);
+            var data = source.First();
+            if (data == null)
+                return null;
 
-//        //            if (asset != null)
-//        //            {
-//        //                lightmapsPerSceneCache.Add(asset.sceneGuid, asset);
-//        //            }
-//        //        }
-//        //    }
-//        //}
+            bool isSRGB = GraphicsFormatUtility.IsSRGBFormat(data.graphicsFormat);
+            var result = new Texture2DArray(data.width, data.height, source.Count, source[0].format, true, !isSRGB);
+            result.filterMode = FilterMode.Trilinear;
+            result.wrapMode = TextureWrapMode.Clamp;
+            result.anisoLevel = 3;
 
-//        //private static void CreateSceneLightmapsAsset()
-//        //{
-//        //    if (TryGetDatabase(out var database))
-//        //    {
-//        //        var scene = EditorSceneManager.GetActiveScene();
+            for (var sliceIndex = 0; sliceIndex < source.Count; sliceIndex++)
+            {
+                var lightMap = source[sliceIndex];
+                UnityEngine.Graphics.CopyTexture(lightMap, 0, result, sliceIndex);
+            }
 
-//        //        if (database.TryGetSceneBakedDataWithScenePath(scene.path, out _))
-//        //        {
+            return result;
+        }
 
-//        //        }
-//        //    }
-//        //}
+        /// <summary>
+        /// Constructs a LightMaps instance from a list of textures for colors, direction lights, and shadow masks.
+        /// </summary>
+        /// <param name="inColors">The list of Texture2D for colors.</param>
+        /// <param name="inDirections">The list of Texture2D for direction lights.</param>
+        /// <param name="inShadowMasks">The list of Texture2D for shadow masks.</param>
+        public static void ConstructLightMaps(List<Texture2D> inColors, List<Texture2D> inDirections, List<Texture2D> inShadowMasks, SceneLightmapsSharedDataAsset asset)
+        {
+            asset.colors = CopyToTextureArray(inColors);
+            asset.directions = CopyToTextureArray(inDirections);
+            asset.shadowMasks = CopyToTextureArray(inShadowMasks);
+        }
+    }
+#endif
 
-//        //private static bool TryGetDatabase(out EntityConverterDatabase database)
-//        //{
-//        //    database = EntityConverterDatabase.GetInstance();
-//        //    return database != null;
-//        //}
-//    }
-//#endif
-//    public sealed class SceneLightmapsAsset : ScriptableObject
-//    {
-//        [SerializeField]
-//        internal string sceneGuid;
-
-//        [SerializeField]
-//        internal SceneLightmapsSharedDataAsset sharedData;
-
-//        [SerializeField]
-//        private List<Renderer> renderers;
-
-//        internal Material GetMaterialForRenderer(Renderer renderer)
-//        {
-//            return null;
-//        }
-
-//        private void ValidateRenderers()
-//        {
-
-//        }
-//    }
-
-//    public struct LightmapData
-//    {
-//        public Material lightmappedMaterial;
-//        public SceneLightmapsSharedDataAsset shared;
-//    }
-
-//    public sealed class SceneLightmapsSharedDataAsset : ScriptableObject
-//    {
-//        /// <summary>
-//        /// An array of color maps.
-//        /// </summary>
-//        public Texture2DArray colors;
-
-//        /// <summary>
-//        /// An array of directional maps.
-//        /// </summary>
-//        public Texture2DArray directions;
-
-//        /// <summary>
-//        /// An array of Shadow masks.
-//        /// </summary>
-//        public Texture2DArray shadowMasks;
-
-//        /// <summary>
-//        /// An array of lightmapped materials.
-//        /// </summary>
-//        public List<Material> materials;
-//    }
-
-//    [Serializable]
-//    internal sealed class LightMappedMaterialRef
-//    {
-//        public Material material;
-//        public int refCount;
-//    }
-//}
+    [Serializable]
+    internal sealed class LightMappedMaterialRef
+    {
+        public Material material;
+        public int refCount;
+    }
+}
