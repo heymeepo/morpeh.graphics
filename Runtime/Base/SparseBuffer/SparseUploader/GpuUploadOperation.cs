@@ -22,6 +22,7 @@
         /// GPU offset to start writing destination data in
         /// </summary>
         public int dstOffset;
+
         /// <summary>
         /// GPU offset to start writing any inverse matrices in, if applicable
         /// </summary>

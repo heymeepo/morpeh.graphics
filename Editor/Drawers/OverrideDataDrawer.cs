@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 using UnityEngine.Rendering;
 
 [CustomPropertyDrawer(typeof(OverrideData), true)]
-public class OverrideDataDrawer : PropertyDrawer
+public sealed class OverrideDataDrawer : PropertyDrawer
 {
     public override VisualElement CreatePropertyGUI(SerializedProperty property)
     {

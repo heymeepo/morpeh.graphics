@@ -7,21 +7,27 @@ using UnityEngine.Rendering;
 
 namespace Scellecs.Morpeh.Graphics.Baking
 {
+    [DisallowMultipleComponent]
     [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
     [Icon("Packages/com.scellecs.morpeh.graphics/Editor/DefaultResources/Icons/d_Renderer@64.png")]
     public sealed class GraphicsAuthoring : EcsAuthoring
     {
-        [SerializeField] 
+        [SerializeField]
         internal List<OverrideData> overrides;
 
-        public override void Bake()
+        public override void OnBeforeBake(UserContext userContext)
+        {
+            
+        }
+
+        public override void OnBake(BakingContext bakingContext, UserContext userContext)
         {
             var meshRenderer = GetComponent<MeshRenderer>();
             var meshFilter = GetComponent<MeshFilter>();
 
             if (meshRenderer.sharedMaterial == null || meshFilter.sharedMesh == null)
             {
-                Debug.LogWarning($"You have not set a mesh or material in {gameObject.name} at {gameObject.scene.name} scene, the graphics data will not be added for this object!");
+                Debug.LogWarning($"You haven't set a mesh or material in {gameObject.name} at {gameObject.scene.name} scene, the graphics data will not be added for this object!");
                 return;
             }
 
@@ -40,7 +46,7 @@ namespace Scellecs.Morpeh.Graphics.Baking
 
             if (filterSettings != RenderFilterSettings.Default)
             {
-                SetComponent(filterSettings);
+                bakingContext.SetComponent(filterSettings);
             }
 
             foreach (var overrideData in overrides)
@@ -57,28 +63,28 @@ namespace Scellecs.Morpeh.Graphics.Baking
                     continue;
                 }
 
-                var typeId = GetComponentTypeId(componentType);
-
                 if (overrideData.type is ShaderPropertyType.Color or ShaderPropertyType.Vector)
                 {
                     float4 value = overrideData.value;
-                    SetComoponentDataUnsafe(value, typeId);
+                    bakingContext.SetComponentUnsafe(componentType, value);
                 }
                 else
                 {
                     float value = overrideData.value.x;
-                    SetComoponentDataUnsafe(value, typeId);
+                    bakingContext.SetComponentUnsafe(componentType, value);
                 }
             }
 
-            if (meshRenderer.lightmapIndex is < 65534 and >= 0 && gameObject.isStatic)
-            {
-                var lightmapData = LightmapBaking.GetLightmapData(meshRenderer);
-                material = lightmapData.lightmappedMaterial;
-                SetComponent(new LightMaps() { lightmaps = lightmapData.shared });
-            }
+            //    if (meshRenderer.IsLightMapped() && gameObject.isStatic)
+            //    {
+            //        var lightmapData = LightmapBaking.GetLightmapData(meshRenderer);
+            //        material = lightmapData.lightmappedMaterial;
+            //        SetComponent(new LightMaps() { lightmaps = lightmapData.shared });
+            //        SetComponent(new BuiltinMaterialPropertyUnity_LightmapIndex() { value = lightmapData.lightmapIndex});
+            //        SetComponent(new BuiltinMaterialPropertyUnity_LightmapST() { value = meshRenderer.lightmapScaleOffset });
+            //    }
 
-            SetComponent(new MaterialMeshManaged()
+            bakingContext.SetComponent(new MaterialMeshManaged()
             {
                 material = material,
                 mesh = mesh,

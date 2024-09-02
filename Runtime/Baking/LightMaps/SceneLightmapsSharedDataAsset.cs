@@ -27,5 +27,20 @@ namespace Scellecs.Morpeh.Graphics
         /// An array of lightmapped materials.
         /// </summary>
         public List<Material> materials;
+
+        /// <summary>
+        /// Indicates whether the container stores any directional maps.
+        /// </summary>
+        public bool hasDirections => directions != null && directions.depth > 0;
+
+        /// <summary>
+        /// Indicates whether the container stores any shadow masks.
+        /// </summary>
+        public bool hasShadowMask => shadowMasks != null && shadowMasks.depth > 0;
+
+        /// <summary>
+        /// Indicates whether the container stores any color maps.
+        /// </summary>
+        public bool isValid => colors != null;
     }
 }

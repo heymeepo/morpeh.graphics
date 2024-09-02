@@ -37,7 +37,7 @@ namespace Scellecs.Morpeh.Graphics
         public NativeFilter entities;
 
         /// <summary>
-        /// Is entities of this GraphicsArchetype have baked lightmaps
+        /// Are entities of this GraphicsArchetype have baked lightmaps
         /// </summary>
         [ReadOnly]
         public bool isLightMapped;

@@ -1,14 +1,14 @@
 ﻿#if UNITY_EDITOR
-using UnityEngine.Experimental.Rendering;
 using UnityEngine;
 using Scellecs.Morpeh.EntityConverter.Utilities;
 using System.Collections.Generic;
 using System;
+using Scellecs.Morpeh.EntityConverter.Collections;
 using System.Linq;
 
 namespace Scellecs.Morpeh.Graphics
 {
-    internal sealed class SceneLightmapsAsset : ScriptableObject, ISceneAsset
+    public sealed class SceneLightmapsAsset : ScriptableObject, ISceneAsset
     {
         [field: SerializeField]
         public string SceneGuid { get; set; }
@@ -19,18 +19,84 @@ namespace Scellecs.Morpeh.Graphics
         [SerializeField]
         private List<Renderer> renderers;
 
-        internal Material GetMaterialForRenderer(Renderer renderer)
-        {
-            ValidateRenderers();
+        [SerializeField]
+        private SerializableDictionary<LightMapKey, int> lightmapIndicesCache;
 
+        internal LightmapData GetLightmapDataForRenderer(Renderer renderer)
+        {
+            int lightmapIndex = 0;
+
+            if (renderers.Contains(renderer) == false)
+            {
+                renderers.Add(renderer);
+
+                if (TryGetCachedLightmapIndexForUnityLightmapIndex(renderer.lightmapIndex, out lightmapIndex) == false)
+                {
+                    UpdateLightmapSceneData();
+                }
+            }
+
+            var lightmappedMaterial = GetLightmappedMaterial();
+
+            return new LightmapData()
+            {
+                lightmapIndex = lightmapIndex,
+                lightmappedMaterial = lightmappedMaterial,
+                shared = sharedData
+            };
+        }
+
+        private bool TryGetCachedLightmapIndexForUnityLightmapIndex(int index, out int cachedIndex)
+        {
+            var lightmaps = LightmapSettings.lightmaps;
+            var lightmapData = lightmaps[index];
+            var key = new LightMapKey(lightmapData);
+
+            return lightmapIndicesCache.TryGetValue(key, out cachedIndex);
+        }
+
+        private Material GetLightmappedMaterial()
+        {
 
 
             return null;
         }
 
+        private void UpdateLightmapSceneData()
+        {
+            var lightmaps = LightmapSettings.lightmaps;
+            var colors = new List<Texture2D>();
+            var directions = new List<Texture2D>();
+            var shadowMasks = new List<Texture2D>();
+            var lightmapIndices = new List<int>();
+
+            foreach (var renderer in renderers)
+            {
+                lightmapIndices.Add(renderer.lightmapIndex);
+            }
+
+            var uniqueIndices = lightmapIndices
+                .Distinct()
+                .OrderBy(x => x)
+                .Where(x => x >= 0 && x != 65534 && x < lightmaps.Length)
+                .ToArray();
+
+            for (var i = 0; i < uniqueIndices.Length; i++)
+            {
+                var index = uniqueIndices[i];
+                var lightmapData = lightmaps[index];
+                var key = new LightMapKey(lightmapData);
+
+                colors.Add(lightmapData.lightmapColor);
+                directions.Add(lightmapData.lightmapDir);
+                shadowMasks.Add(lightmapData.shadowMask);
+                lightmapIndicesCache.Add(key, i);
+            }
+        }
+
         private void ValidateRenderers()
         {
-            for (int i = renderers.Count; i >= 0; i--)
+            for (int i = renderers.Count - 1; i >= 0; i--)
             {
                 if (renderers[i] == null)
                 {
@@ -38,55 +104,6 @@ namespace Scellecs.Morpeh.Graphics
                 }
             }
         }
-
-        /// <summary>
-        /// Converts a provided list of Texture2Ds into a Texture2DArray.
-        /// </summary>
-        /// <param name="source">A list of Texture2Ds.</param>
-        /// <returns>Returns a Texture2DArray that contains the list of Texture2Ds.</returns>
-        private static Texture2DArray CopyToTextureArray(List<Texture2D> source)
-        {
-            if (source == null || !source.Any())
-                return null;
-
-            var data = source.First();
-            if (data == null)
-                return null;
-
-            bool isSRGB = GraphicsFormatUtility.IsSRGBFormat(data.graphicsFormat);
-            var result = new Texture2DArray(data.width, data.height, source.Count, source[0].format, true, !isSRGB);
-            result.filterMode = FilterMode.Trilinear;
-            result.wrapMode = TextureWrapMode.Clamp;
-            result.anisoLevel = 3;
-
-            for (var sliceIndex = 0; sliceIndex < source.Count; sliceIndex++)
-            {
-                var lightMap = source[sliceIndex];
-                UnityEngine.Graphics.CopyTexture(lightMap, 0, result, sliceIndex);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Constructs a LightMaps instance from a list of textures for colors, direction lights, and shadow masks.
-        /// </summary>
-        /// <param name="inColors">The list of Texture2D for colors.</param>
-        /// <param name="inDirections">The list of Texture2D for direction lights.</param>
-        /// <param name="inShadowMasks">The list of Texture2D for shadow masks.</param>
-        public static void ConstructLightMaps(List<Texture2D> inColors, List<Texture2D> inDirections, List<Texture2D> inShadowMasks, SceneLightmapsSharedDataAsset asset)
-        {
-            asset.colors = CopyToTextureArray(inColors);
-            asset.directions = CopyToTextureArray(inDirections);
-            asset.shadowMasks = CopyToTextureArray(inShadowMasks);
-        }
-    }
-#endif
-
-    [Serializable]
-    internal sealed class LightMappedMaterialRef
-    {
-        public Material material;
-        public int refCount;
     }
 }
+#endif
