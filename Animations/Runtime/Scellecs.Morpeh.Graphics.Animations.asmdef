@@ -1,0 +1,33 @@
+{
+    "name": "Scellecs.Morpeh.Graphics.Animations",
+    "rootNamespace": "",
+    "references": [
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:3377deebfb0acde45876d12c6e3d27cc",
+        "GUID:2a6bc844729f8e94391573d2e77c5ba0",
+        "GUID:494ebf02df38b0f46bfef995b9c0c582",
+        "GUID:2289f7b4b58e76145836b8a1a520fb23",
+        "GUID:55db836df77fa934daa1244c4db8a184"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.scellecs.morpeh.startup",
+            "expression": "",
+            "define": "MORPEH_ELYSIUM"
+        },
+        {
+            "name": "com.scellecs.morpeh.entity-converter",
+            "expression": "",
+            "define": "MORPEH_ENTITY_CONVERTER"
+        }
+    ],
+    "noEngineReferences": false
+}

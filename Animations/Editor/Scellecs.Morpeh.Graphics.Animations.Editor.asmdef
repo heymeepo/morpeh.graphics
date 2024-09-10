@@ -1,0 +1,19 @@
+{
+    "name": "Scellecs.Morpeh.Graphics.Animations.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:27882e5425b522049ada7690b31a25a4",
+        "GUID:367d5d862cce85a4f99affe6fb615d97"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
