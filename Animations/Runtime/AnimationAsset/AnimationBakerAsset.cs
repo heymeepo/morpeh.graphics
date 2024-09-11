@@ -52,6 +52,7 @@ namespace Scellecs.Morpeh.Graphics.Animations
                 DestroyImmediate(target);
                 GenerateData(bakedData, positionMap);
                 SaveAsset(animationDataAsset);
+                SaveAsset(this);
             }
         }
 

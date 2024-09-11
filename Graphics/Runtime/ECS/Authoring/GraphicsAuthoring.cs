@@ -9,7 +9,7 @@ namespace Scellecs.Morpeh.Graphics.Authoring
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
-    [Icon("Packages/com.scellecs.morpeh.graphics/Editor/DefaultResources/Icons/d_Renderer@64.png")]
+    [Icon("Packages/com.scellecs.morpeh.graphics/Graphics/Editor/DefaultResources/Icons/d_Renderer@64.png")]
     public sealed class GraphicsAuthoring : EcsAuthoring
     {
         [SerializeField]

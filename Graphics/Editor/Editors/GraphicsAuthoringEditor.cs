@@ -1,9 +1,11 @@
 ﻿using Scellecs.Morpeh.Graphics.Authoring;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
@@ -52,6 +54,18 @@ namespace Scellecs.Morpeh.Graphics.Editor
             meshRendererObject.ApplyModifiedProperties();
             meshFilterObject.ApplyModifiedProperties();
 
+            inspector.schedule.Execute(_ => //xddddddd
+            {
+                if (target != null)
+                {
+                    meshRenderer.hideFlags = HideFlags.HideInInspector;
+                    meshFilter.hideFlags = HideFlags.HideInInspector;
+                    InternalEditorUtility.SetIsInspectorExpanded(meshFilter, !InternalEditorUtility.GetIsInspectorExpanded(meshFilter));
+                    InternalEditorUtility.SetIsInspectorExpanded(meshRenderer, !InternalEditorUtility.GetIsInspectorExpanded(meshRenderer));
+                }
+            })
+            .ForDuration(1);
+
             return inspector;
         }
 
@@ -61,8 +75,6 @@ namespace Scellecs.Morpeh.Graphics.Editor
 
             meshRenderer = targetGameObject.GetComponent<MeshRenderer>();
             meshFilter = targetGameObject.GetComponent<MeshFilter>();
-            meshRenderer.hideFlags = HideFlags.HideInInspector;
-            meshFilter.hideFlags = HideFlags.HideInInspector;
 
             meshRendererObject = new SerializedObject(meshRenderer);
             meshFilterObject = new SerializedObject(meshFilter);
@@ -87,13 +99,20 @@ namespace Scellecs.Morpeh.Graphics.Editor
             renderingLayerMask.choicesMasks = Enumerable.Range(0, 32).Select(i => 1 << i).ToList();
             renderingLayerMask.schedule.Execute(_ =>
             {
-                renderingLayerMask.choices = new List<string>(SRPUtility.RenderingLayerMaskNames);
-                renderingLayerMask.value = meshRendererLayerMask.intValue;
-            }).Every(1000);
+                if (target != null)
+                {
+                    renderingLayerMask.choices = new List<string>(SRPUtility.RenderingLayerMaskNames);
+                    renderingLayerMask.value = meshRendererLayerMask.intValue;
+                }
+            })
+            .Every(1000);
             renderingLayerMask.RegisterValueChangedCallback(x =>
             {
-                meshRendererLayerMask.uintValue = (uint)x.newValue;
-                meshRendererObject.ApplyModifiedProperties();
+                if (target != null)
+                {
+                    meshRendererLayerMask.uintValue = (uint)x.newValue;
+                    meshRendererObject.ApplyModifiedProperties();
+                }
             });
 
             var meshRendererStaticShadowCaster = meshRendererObject.FindProperty("m_StaticShadowCaster");
@@ -158,13 +177,13 @@ namespace Scellecs.Morpeh.Graphics.Editor
 
         private void OnDestroy()
         {
-            if (target == null && 
-                targetGameObject != null && 
-                targetGameObject.GetComponent<GraphicsAuthoring>() == null && 
+            if (target == null &&
+                targetGameObject != null &&
+                targetGameObject.GetComponent<GraphicsAuthoring>() == null &&
                 Application.isPlaying == false)
             {
-                DestroyImmediate(meshRenderer);
-                DestroyImmediate(meshFilter);
+                DestroyImmediate(meshRenderer, true);
+                DestroyImmediate(meshFilter, true);
             }
         }
     }

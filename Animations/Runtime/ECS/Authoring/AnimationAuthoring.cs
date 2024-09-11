@@ -21,6 +21,12 @@ namespace Scellecs.Morpeh.Graphics.Animations.Authoring
 
         public override void OnBake(BakingContext bakingContext, UserContext userContext)
         {
+            if (animationBakerAsset == null)
+            {
+                Debug.LogWarning("The AnimationBakerAsset is not assigned!");
+                return;
+            }
+
             var dataAsset = animationBakerAsset.animationDataAsset;
             var animationStatesInfo = animationBakerAsset.GetAnimationStatesInfo();
 
